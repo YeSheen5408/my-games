@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>賽博地下城：文字冒險 ⚔️</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            background: #121214;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 { color: #ff0077; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(255,0,119,0.5); }
+        
+        /* 角色狀態面板 */
+        .status-panel {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a1f;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 13px;
+        }
+        .status-item { display: flex; align-items: center; gap: 5px; }
+        .highlight { color: #00ffcc; font-weight: bold; }
+        .danger { color: #ff3333; font-weight: bold; }
+
+        /* 文字日誌主視窗 */
+        .log-window {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            background: #1e1e24;
+            border: 2px solid #ff0077;
+            border-radius: 12px;
+            padding: 15px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            box-shadow: 0 0 15px rgba(255,0,119,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .log-entry { animation: fadeIn 0.3s ease; }
+        .log-system { color: #aaa; font-style: italic; }
+        .log-combat { color: #ffcc00; }
+        .log-reward { color: #00ffcc; font-weight: bold; }
+
+        /* 行動按鈕區 */
+        .action-group {
+            width: 100%;
+            max-width: 400px;
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn-row { display: flex; gap: 10px; width: 100%; }
+        .btn {
+            flex: 1;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #fff;
+            transition: all 0.1s;
+        }
+        .btn:disabled { background: #333 !important; color: #666 !important; cursor: not-allowed; }
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+        
+        .btn-explore { background: #ff0077; box-shadow: 0 0 8px rgba(255,0,119,0.4); }
+        .btn-combat { background: #ff7700; }
+        .btn-run { background: #555; }
+        .btn-shop { background: #00aa66; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1>隨機地下城 ⚔️</h1>
+    
+    <div class="status-panel">
+        <div class="status-item">🏰 目前層數: <span id="p-floor" class="highlight">1</span> / 10</div>
+        <div class="status-item">❤️ 生命值: <span id="p-hp" class="highlight">100</span> / 100</div>
+        <div class="status-item">⚔️ 攻擊力: <span id="p-atk">15</span></div>
+        <div class="status-item">🛡️ 防禦力: <span id="p-def">5</span></div>
+        <div class="status-item">💎 金幣: <span id="p-gold" style="color:#ffe600">0</span></div>
+        <div class="status-item">🗡️ 裝備: <span id="p-weapon" style="color:#da70d6">新手短劍</span></div>
+    </div>
+
+    <div class="log-window" id="log-box">
+        <div class="log-entry log-system">【系統】你踏入了神秘的隨機地下城，準備好開始探索了嗎？</div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn btn-explore" id="btn-explore" onclick="explore()">🥾 前進探索下一格</button>
+        
+        <div class="btn-row">
+            <button class="btn btn-combat" id="btn-attack" onclick="attack()" disabled>⚔️ 戰鬥</button>
+            <button class="btn btn-run" id="btn-escape" onclick="escape()" disabled>🏃 逃跑</button>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-shop" id="btn-shop1" onclick="buyItem(1)" disabled>🧪 買水 ($20)</button>
+            <button class="btn btn-shop" id="btn-shop2" onclick="buyItem(2)" disabled>🛡️ 鍛造防具 ($40)</button>
+        </div>
+
+        <button class="btn" style="background:#2d2d38;" onclick="location.href='index.html'">回大廳</button>
+    </div>
+
+    <script>
+        // 玩家初始屬性
+        let player = { hp: 100, maxHp: 100, atk: 15, def: 5, gold: 20, floor: 1, weapon: "新手短劍" };
+        let currentEnemy = null;
+        let isShopping = false;
+
+        // 怪物資料庫
+        const monsters = [
+            { name: "迷途小史萊姆", hp: 30, atk: 8, def: 1, gold: 10 },
+            { name: "地下城黑蝙蝠", hp: 40, atk: 12, def: 2, gold: 15 },
+            { name: "骷髏巡邏兵", hp: 55, atk: 16, def: 4, gold: 20 },
+            { name: "哥布林掠奪者", hp: 70, atk: 20, def: 5, gold: 30 },
+            { name: "狂暴獸人(精英)", hp: 100, atk: 28, def: 8, gold: 50 }
+        ];
+
+        function addLog(text, type = "system") {
+            const logBox = document.getElementById('log-box');
+            const entry = document.createElement('div');
+            entry.classList.add('log-entry', 'log-' + type);
+            entry.innerHTML = text;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight; // 自動捲動到底部
+        }
+
+        function updateUI() {
+            document.getElementById('p-floor').innerText = player.floor;
+            document.getElementById('p-hp').innerText = player.hp;
+            document.getElementById('p-atk').innerText = player.atk;
+            document.getElementById('p-def').innerText = player.def;
+            document.getElementById('p-gold').innerText = player.gold;
+            document.getElementById('p-weapon').innerText = player.weapon;
+
+            if (player.hp <= 0) {
+                document.getElementById('p-hp').className = "danger";
+                document.getElementById('btn-explore').disabled = true;
+                disableCombatButtons();
+                disableShopButtons();
+                return;
+            }
+
+            // 控制按鈕的啟用/禁用狀態
+            if (currentEnemy) {
+                document.getElementById('btn-explore').disabled = true;
+                document.getElementById('btn-attack').disabled = false;
+                document.getElementById('btn-escape').disabled = false;
+                disableShopButtons();
+            } else if (isShopping) {
+                document.getElementById('btn-explore').disabled = false;
+                document.getElementById('btn-explore').innerText = "🥾 離開商店，繼續前進";
+                document.getElementById('btn-attack').disabled = true;
+                document.getElementById('btn-escape').disabled = true;
+                document.getElementById('btn-shop1').disabled = player.gold < 20;
+                document.getElementById('btn-shop2').disabled = player.gold < 40;
+            } else {
+                document.getElementById('btn-explore').disabled = false;
+                document.getElementById('btn-explore').innerText = "🥾 前進探索下一格";
+                disableCombatButtons();
+                disableShopButtons();
+            }
+        }
+
+        function disableCombatButtons() {
+            document.getElementById('btn-attack').disabled = true;
+            document.getElementById('btn-escape').disabled = true;
+        }
+
+        function disableShopButtons() {
+            document.getElementById('btn-shop1').disabled = true;
+            document.getElementById('btn-shop2').disabled = true;
+            isShopping = false;
+        }
+
+        // 核心：點擊探索按鈕
+        function explore() {
+            if (player.hp <= 0) return;
+            isShopping = false;
+
+            // 1. 檢查是否觸發最終 Boss
+            if (player.floor === 10) {
+                addLog("<b style='color:#ff3333;'>【⚠️ 警告】你來到了地下城最深處！第10層魔王『賽博巨龍』咆哮著朝你衝過來！</b>", "combat");
+                currentEnemy = { name: "👹 終焉魔王·賽博巨龍", hp: 250, atk: 40, def: 15, gold: 999 };
+                updateUI();
+                return;
+            }
+
+            // 2. 隨機觸發三種事件
+            let rand = Math.random();
+
+            if (rand < 0.55) {
+                // 觸發戰鬥事件 (根據層數強度加權)
+                let enemyTemplate = monsters[Math.floor(Math.random() * monsters.length)];
+                let difficultyMultiplier = 1 + (player.floor - 1) * 0.25; // 每多一層怪物強25%
+                
+                currentEnemy = {
+                    name: enemyTemplate.name,
+                    hp: Math.round(enemyTemplate.hp * difficultyMultiplier),
+                    atk: Math.round(enemyTemplate.atk * difficultyMultiplier),
+                    def: Math.round(enemyTemplate.def * difficultyMultiplier),
+                    gold: Math.round(enemyTemplate.gold * difficultyMultiplier)
+                };
+                
+                addLog(`⚔️ 遭遇怪物！一隻 <b>${currentEnemy.name}</b> (血量:${currentEnemy.hp}) 攔住了你的去路！`, "combat");
+            } 
+            else if (rand < 0.80) {
+                // 觸發寶箱事件
+                let goldFound = Math.floor(Math.random() * 20) + 10 * player.floor;
+                player.gold += goldFound;
+                
+                // 有機率撿到神裝
+                let weaponUpgrade = false;
+                if (Math.random() < 0.35 && player.atk < (15 + player.floor * 8)) {
+                    player.atk += 5;
+                    player.weapon = "量子光束劍";
+                    weaponUpgrade = true;
+                }
+                
+                addLog(`🎁 發現一個古老寶箱！你獲得了 <span style='color:#ffe600;'>${goldFound} 金幣</span>！` + 
+                    (weaponUpgrade ? " 並且在裡面翻到了神裝 <span style='color:#da70d6;'>[量子光束劍]</span>，攻擊力提升了！" : ""), "reward");
+            } 
+            else {
+                // 觸發神祕地下商店
+                isShopping = true;
+                addLog("🏪 街道轉角遇到了一位流浪商人：『嘿冒險者，要來點補給嗎？』", "system");
+            }
+
+            updateUI();
+        }
+
+        // 戰鬥邏輯：攻擊
+        function attack() {
+            if (!currentEnemy) return;
+
+            // 1. 玩家打怪物
+            let dmgToEnemy = player.atk - currentEnemy.def;
+            if (dmgToEnemy < 1) dmgToEnemy = 1;
+            currentEnemy.hp -= dmgToEnemy;
+            addLog(`🗡️ 你對 ${currentEnemy.name} 造成了 <b>${dmgToEnemy}</b> 點傷害。`, "system");
+
+            // 檢查怪物是否死亡
+            if (currentEnemy.hp <= 0) {
+                addLog(`🎉 擊殺成功！你擊敗了 ${currentEnemy.name}，搜刮獲得 <span style='color:#ffe600;'>${currentEnemy.gold} 金幣</span>！`, "reward");
+                player.gold += currentEnemy.gold;
+                
+                // 如果打贏第10層Boss，直接破關
+                if (player.floor === 10) {
+                    addLog("<br><b style='color:#00ffcc; font-size:16px;'>🎉【通關大吉】你成功擊敗了巨龍！地下城重回和平，你成為了傳奇英雄！</b><br>", "reward");
+                    currentEnemy = null;
+                    document.getElementById('btn-explore').innerText = "🏆 已完美破關";
+                    document.getElementById('btn-explore').disabled = true;
+                    updateUI();
+                    return;
+                }
+
+                // 往前進一層
+                player.floor++;
+                addLog(`🏰 安全度過此區，你順著樓梯往向下踏入了第 <b>${player.floor}</b> 層。`, "system");
+                currentEnemy = null;
+                updateUI();
+                return;
+            }
+
+            // 2. 怪物反擊玩家
+            let dmgToPlayer = currentEnemy.atk - player.def;
+            if (dmgToPlayer < 1) dmgToPlayer = 1;
+            player.hp -= dmgToPlayer;
+            addLog(`💥 ${currentEnemy.name} 發動反擊，對你造成 <b>${dmgToPlayer}</b> 點傷害！`, "combat");
+
+            // 檢查玩家是否死亡
+            if (player.hp <= 0) {
+                player.hp = 0;
+                addLog("<br><b style='color:#ff3333; font-size:15px;'>💀【勝敗乃兵家常事】你眼前的畫面逐漸變黑...冒險結束。請點擊重新開始或回大廳。</b><br>", "combat");
+            }
+
+            updateUI();
+        }
+
+        // 戰鬥邏輯：逃跑
+        function escape() {
+            if (!currentEnemy) return;
+            if (player.floor === 10) {
+                addLog("❌ 面對最終Boss，你無法逃跑！", "combat");
+                return;
+            }
+
+            if (Math.random() < 0.5) {
+                addLog("🏃 逃跑成功！你狼狽地溜向了另一個安全房間。", "system");
+                currentEnemy = null;
+            } else {
+                addLog("❌ 逃跑失敗！怪物擋住了出口並狠狠給了你一擊！", "combat");
+                let dmg = Math.max(1, currentEnemy.atk - player.def);
+                player.hp -= dmg;
+                if (player.hp <= 0) player.hp = 0;
+            }
+            updateUI();
+        }
+
+        // 商店買東西
+        function buyItem(type) {
+            if (!isShopping) return;
+
+            if (type === 1 && player.gold >= 20) {
+                player.gold -= 20;
+                player.hp = Math.min(player.maxHp, player.hp + 40);
+                addLog("🧪 咕嚕咕嚕...你喝下了恢復藥水，回復了 40 點生命值！", "reward");
+            } else if (type === 2 && player.gold >= 40) {
+                player.gold -= 40;
+                player.def += 3;
+                addLog("🛡️ 噹！噹！鐵匠幫你加固了奈米防具，防禦力額外提升了 3 點！", "reward");
+            }
+            updateUI();
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
