@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>賽博修仙：點擊與暴富 ⚡</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            background: #0d0d11;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 { color: #00ffcc; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
+        
+        /* 核心修為顯示面板 */
+        .main-display {
+            width: 100%;
+            max-width: 400px;
+            background: linear-gradient(135deg, #14141f 0%, #221a30 100%);
+            border: 2px solid #8a2be2;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: 0 0 15px rgba(138,43,226,0.3);
+        }
+        .realm-title { color: #da70d6; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .energy-count { font-size: 32px; font-weight: bold; color: #00ffcc; margin: 10px 0; text-shadow: 0 0 8px #00ffcc; }
+        .ips-text { font-size: 13px; color: #aaa; }
+
+        /* 大核心修煉按鈕 */
+        .core-clicker {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #8a2be2 0%, #4a0082 100%);
+            border: 4px solid #00ffcc;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0 20px 0;
+            box-shadow: 0 0 20px rgba(0,255,204,0.4);
+            user-select: none;
+            transition: transform 0.05s;
+        }
+        .core-clicker:active { transform: scale(0.92); box-shadow: 0 0 30px #00ffcc; }
+
+        /* 區塊分頁標籤 */
+        .section-title {
+            width: 100%;
+            max-width: 400px;
+            font-size: 14px;
+            color: #00ffcc;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin: 15px 0 10px 0;
+            font-weight: bold;
+        }
+
+        /* 升級與股市列表 */
+        .list-container { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 8px; }
+        
+        .upgrade-card {
+            background: #16161e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .upgrade-info { font-size: 13px; }
+        .upgrade-name { font-weight: bold; color: #fff; margin-bottom: 2px; }
+        .upgrade-effect { font-size: 11px; color: #888; }
+        
+        .btn-buy {
+            background: #8a2be2;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-buy:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        /* 渡劫與股市特殊按鈕 */
+        .gamble-box {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .btn-gamble {
+            flex: 1;
+            padding: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+        .btn-up { background: #ff0055; }
+        .btn-down { background: #00aa66; }
+        .btn-break { background: #ffe600; color: #000; width: 100%; max-width: 400px; margin-top: 10px; }
+
+        /* 股市走勢紀錄 */
+        .stock-log {
+            width: 100%;
+            max-width: 400px;
+            background: #09090d;
+            border: 1px dashed #444;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #aaa;
+            height: 55px;
+            overflow-y: auto;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>賽博修仙：點擊與暴富 ⚡</h1>
+
+    <div class="main-display">
+        <div class="realm-title" id="realm-text">🔮 境界：肉體凡胎 (第 1 重)</div>
+        <div class="energy-count" id="energy-text">0</div>
+        <div class="ips-text">自動凝聚中：+<span id="ips-text">0</span> 修為/秒</div>
+    </div>
+
+    <div class="core-clicker" onclick="clickCore()">⚡<br>凝聚修為</div>
+
+    <button class="btn-gamble btn-break" id="break-btn" onclick="breakthrough()">🔮 渡劫突破下一重 (花費: 100)</button>
+
+    <div class="section-title">📈 靈石大盤股票（隨機暴富與破產）</div>
+    <div class="gamble-box">
+        <button class="btn-gamble btn-up" onclick="invest(true)">🔥 全押買「看漲」</button>
+        <button class="btn-gamble btn-down" onclick="invest(false)">🍏 全押買「看跌」</button>
+    </div>
+    <div class="stock-log" id="stock-log">【大盤提示】兩儀股指目前平穩，等待道友投資...</div>
+
+    <div class="section-title">🛠️ 購置自動化修煉法寶</div>
+    <div class="list-container">
+        <div class="upgrade-card">
+            <div class="upgrade-info">
+                <div class="upgrade-name">🤖 賽博木魚 (Lv <span id="items-0-lv">0</span>)</div>
+                <div class="upgrade-effect">每秒自動敲擊 +1 修為</div>
+            </div>
+            <button class="btn-buy" id="items-0-btn" onclick="buyItem(0)">花費: 15</button>
+        </div>
+        <div class="upgrade-card">
+            <div class="upgrade-info">
+                <div class="upgrade-name">🛸 量子聚靈陣 (Lv <span id="items-1-lv">0</span>)</div>
+                <div class="upgrade-effect">每秒抽取地脈 +8 修為</div>
+            </div>
+            <button class="btn-buy" id="items-1-btn" onclick="buyItem(1)">花費: 100</button>
+        </div>
+        <div class="upgrade-card">
+            <div class="upgrade-info">
+                <div class="upgrade-name">🌌 太虛伺服器 (Lv <span id="items-2-lv">0</span>)</div>
+                <div class="upgrade-effect">運算天道玄機 +50 修為/秒</div>
+            </div>
+            <button class="btn-buy" id="items-2-btn" onclick="buyItem(2)">花費: 800</button>
+        </div>
+    </div>
+
+    <button class="btn-gamble" style="background:#222; width:100%; max-width:400px; margin-top:25px;" onclick="location.href='index.html'">回大廳</button>
+
+    <script>
+        // 遊戲核心數據
+        let energy = 0;
+        let clickPower = 1;
+        let totalIps = 0;
+        
+        let realmLayer = 1;
+        const realmNames = ["肉體凡胎", "煉氣期", "築基期", "金丹期", "元嬰期", "化神期", "渡劫成仙"];
+
+        // 法寶數據配置
+        let items = [
+            { name: "賽博木魚", lv: 0, cost: 15, ips: 1 },
+            { name: "量子聚靈陣", lv: 0, cost: 100, ips: 8 },
+            { name: "太虛伺服器", lv: 0, cost: 800, ips: 50 }
+        ];
+
+        // 突破下一重所需花費公式
+        function getBreakCost() {
+            return Math.round(100 * Math.pow(1.8, realmLayer - 1));
+        }
+
+        // 手動點擊
+        function clickCore() {
+            energy += clickPower;
+            updateUI();
+        }
+
+        // 購買自動化
