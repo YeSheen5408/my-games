@@ -24,14 +24,45 @@
         }
         p {
             color: #e0e0e0;
-            margin-bottom: 40px;
+            margin-bottom: 25px;
         }
+
+        /* ⚙️ 全新大廳排序控制台 */
+        .control-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 30px;
+            padding: 8px 20px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+        .btn-sort {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .btn-sort:hover { background: rgba(255,255,255,0.1); }
+        .btn-sort.active {
+            background: #00ffcc;
+            color: #1e3c72;
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0,255,204,0.4);
+        }
+
         .menu-container {
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 700px;
+            max-width: 950px;
         }
         .menu-card {
             background: rgba(255, 255, 255, 0.1);
@@ -46,24 +77,40 @@
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
             cursor: pointer;
             user-select: none;
+            position: relative;
         }
         .menu-card:hover {
-            transform: translateY(-10px);
+            transform: translateY(-8px);
             background: rgba(255, 255, 255, 0.2);
         }
-        .game-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
+        
+        /* ⭐ 我的最愛星星按鈕樣式 */
+        .star-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: transform 0.1s, color 0.2s;
+            z-index: 10;
+            padding: 4px;
         }
-        .game-title {
-            font-size: 1.25rem;
-            font-weight: bold;
-            margin-bottom: 8px;
+        .star-btn:hover { transform: scale(1.2); color: #ffe600; }
+        .star-btn.favored {
+            color: #ffe600;
+            text-shadow: 0 0 8px rgba(255,230,0,0.6);
         }
-        .game-desc {
-            font-size: 0.9rem;
-            color: #ccc;
+
+        /* 📌 釘選置頂的卡牌邊框加成 */
+        .menu-card.is-pinned {
+            border: 2px solid #ffe600;
+            box-shadow: 0 8px 32px 0 rgba(255, 230, 0, 0.15);
         }
+
+        .game-icon { font-size: 3rem; margin-bottom: 15px; }
+        .game-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 8px; }
+        .game-desc { font-size: 0.9rem; color: #ccc; }
 
         /* 全螢幕遊戲舞台容器 */
         .game-stage-container {
@@ -76,11 +123,7 @@
             background: #121214;
             z-index: 9999;
         }
-        .game-iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+        .game-iframe { width: 100%; height: 100%; border: none; }
 
         /* 全域開發者懸浮重整球 */
         .dev-floater {
@@ -99,37 +142,16 @@
             box-shadow: 0 4px 20px rgba(255,230,0,0.4);
             font-family: monospace;
         }
-        .timer-highlight {
-            color: #ffe600;
-            font-weight: bold;
-        }
-        .count-highlight {
-            color: #00ffcc;
-            font-weight: bold;
-        }
+        .timer-highlight { color: #ffe600; font-weight: bold; }
+        .count-highlight { color: #00ffcc; font-weight: bold; }
         .btn-dev-refresh {
-            background: #ff0055;
-            color: white;
-            border: none;
-            border-radius: 15px;
-            padding: 4px 10px;
-            font-size: 11px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
+            background: #ff0055; color: white; border: none; border-radius: 15px;
+            padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer;
         }
-        .btn-dev-refresh:hover { background: #ff3377; }
         .btn-dev-close {
-            background: #555;
-            color: white;
-            border: none;
-            border-radius: 15px;
-            padding: 4px 10px;
-            font-size: 11px;
-            cursor: pointer;
-            display: none; 
+            background: #555; color: white; border: none; border-radius: 15px;
+            padding: 4px 10px; font-size: 11px; cursor: pointer; display: none; 
         }
-        .btn-dev-close:hover { background: #777; }
     </style>
 </head>
 <body>
@@ -142,75 +164,113 @@
     </div>
 
     <h1>🎮 我的小遊戲基地 🚀</h1>
-    <p>歡迎光臨！請選擇你想挑戰的小遊戲：</p>
+    <p>自訂你的專屬大廳，點擊卡牌右上角 ⭐ 即可置頂最愛遊戲！</p>
 
-    <div class="menu-container">
-        <div onclick="openGame('cards.html')" class="menu-card">
-            <div class="game-icon">🧠</div>
-            <div class="game-title">記憶力大考驗</div>
-            <div class="game-desc">翻開卡牌，考驗你的瞬間記憶力！</div>
-        </div>
-
-        <div onclick="openGame('snake.html')" class="menu-card">
-            <div class="game-icon">🐍</div>
-            <div class="game-title">經典貪食蛇</div>
-            <div class="game-desc">控制小蛇吃掉食物，挑戰最高分數！</div>
-        </div>
-
-        <div onclick="openGame('gacha.html')" class="menu-card">
-            <div class="game-icon">💎</div>
-            <div class="game-title">冒險者抽卡</div>
-            <div class="game-desc">測試你的脫非入歐運氣，挑戰集滿全圖鑑！</div>
-        </div>
-
-        <div onclick="openGame('mines.html')" class="menu-card">
-            <div class="game-icon">💣</div>
-            <div class="game-title">經典踩地雷</div>
-            <div class="game-desc">考驗邏輯與運氣，用智慧找出所有地雷！</div>
-        </div>
-
-        <div onclick="openGame('reversi.html')" class="menu-card">
-            <div class="game-icon">🔮</div>
-            <div class="game-title">賽博黑白棋</div>
-            <div class="game-desc">圍夾翻轉！與極智 AI 展開棋盤上的黑白攻防大戰。</div>
-        </div>
-
-        <div onclick="openGame('dungeon.html')" class="menu-card">
-            <div class="game-icon">⚔️</div>
-            <div class="game-title">地下城隨機文字冒險</div>
-            <div class="game-desc">極簡純文字 RPG。打怪、奪寶、走訪商店，目標挑戰第 10 層巨龍！</div>
-        </div>
-
-        <div onclick="openGame('cultivation.html')" class="menu-card">
-            <div class="game-icon">⚡</div>
-            <div class="game-title">賽博修仙：點擊與暴富</div>
-            <div class="game-desc">掛機點擊收集修為，更有隨機翻倍或歸零的賽博股市等你一夕暴富！</div>
-        </div>
-        
-        <div onclick="openGame('blackjack.html')" class="menu-card">
-            <div class="game-icon">🃏</div>
-            <div class="game-title">經典卡牌：21點對決</div>
-            <div class="game-desc">考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！</div>
-        </div>
-
-        <div onclick="openGame('space.html')" class="menu-card">
-            <div class="game-icon">🚀</div>
-            <div class="game-title">極簡彈幕：科幻星戰</div>
-            <div class="game-desc">雷射連發、迎戰外星艦隊！體驗掌上流暢無阻的星際彈幕大戰。</div>
-        </div>
+    <div class="control-panel">
+        <button class="btn-sort" id="sort-classic" onclick="changeSort('classic')">📜 經典舊到新</button>
+        <button class="btn-sort" id="sort-newest" onclick="changeSort('newest')">🆕 最新加到前</button>
+        <button class="btn-sort" id="sort-random" onclick="changeSort('random')">🔀 天道隨機隨緣</button>
     </div>
+
+    <div class="menu-container" id="menuContainer"></div>
 
     <div class="game-stage-container" id="gameStage">
         <iframe class="game-iframe" id="gameFrame" src=""></iframe>
     </div>
 
     <script>
+        // 1. 定義完整的遊戲母體清單（按照實裝順序排列，越下面越新）
+        const originalGames = [
+            { id: "cards", url: "cards.html", icon: "🧠", title: "記憶力大考驗", desc: "翻開卡牌，考驗你的瞬間記憶力！" },
+            { id: "snake", url: "snake.html", icon: "🐍", title: "經典貪食蛇", desc: "控制小蛇吃掉食物，挑戰最高分數！" },
+            { id: "gacha", url: "gacha.html", icon: "💎", title: "冒險者抽卡", desc: "測試你的脫非入歐運氣，挑戰集滿全圖鑑！" },
+            { id: "mines", url: "mines.html", icon: "💣", title: "經典踩地雷", desc: "考驗邏輯與運氣，用智慧找出所有地雷！" },
+            { id: "reversi", url: "reversi.html", icon: "🔮", title: "賽博黑白棋", desc: "圍夾翻轉！與極智 AI 展開棋盤上的黑白攻防大戰。" },
+            { id: "dungeon", url: "dungeon.html", icon: "⚔️", title: "地下城隨機文字冒險", desc: "極簡純文字 RPG。目標挑戰第 10 層巨龍！" },
+            { id: "cultivation", url: "cultivation.html", icon: "⚡", title: "賽博修仙：點擊與暴富", desc: "掛機點擊收集修為，股市等你一夕暴富！" },
+            { id: "blackjack", url: "blackjack.html", icon: "🃏", title: "經典卡牌：21點對決", desc: "考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！" },
+            { id: "space", url: "space.html", icon: "🚀", title: "極簡彈幕：科幻星戰", desc: "雷射連發！體驗掌上流暢無阻的星際彈幕大戰。" }
+        ];
+
+        // 大廳狀態
+        let currentSort = localStorage.getItem('lobby_sort_mode') || 'classic';
+        let favorites = JSON.parse(localStorage.getItem('lobby_favorites')) || [];
+
         let countdown = 60;
         let timerInterval = null;
         let currentUrl = "";
-        
         let refreshCount = parseInt(sessionStorage.getItem('global_refresh_count')) || 0;
 
+        // 🔄 渲染大廳所有卡片的核心引擎
+        function renderLobby() {
+            const container = document.getElementById('menuContainer');
+            container.innerHTML = '';
+
+            // 複製一份陣列來進行排序，不破壞母體
+            let displayList = [...originalGames];
+
+            // 執行排序算法
+            if (currentSort === 'newest') {
+                displayList.reverse(); // 最新加入的在最前面
+            } else if (currentSort === 'random') {
+                displayList.sort(() => Math.random() - 0.5); // 隨機洗牌
+            }
+
+            // 核心邏輯：把標記成「我的最愛」的卡片提到最最前面（置頂）
+            displayList.sort((a, b) => {
+                let aFav = favorites.includes(a.id) ? 1 : 0;
+                let bFav = favorites.includes(b.id) ? 1 : 0;
+                return bFav - aFav; // 1 排在 0 前面
+            });
+
+            // 更新排序按鈕的亮燈 UI 狀態
+            document.querySelectorAll('.btn-sort').forEach(btn => btn.classList.remove('active'));
+            if(document.getElementById(`sort-${currentSort}`)) {
+                document.getElementById(`sort-${currentSort}`).classList.add('active');
+            }
+
+            // 開始繪製 HTML 節點
+            displayList.forEach(game => {
+                const isFav = favorites.includes(game.id);
+                
+                const card = document.createElement('div');
+                card.className = `menu-card ${isFav ? 'is-pinned' : ''}`;
+                card.setAttribute('onclick', `openGame('${game.url}')`);
+
+                card.innerHTML = `
+                    <div class="star-btn ${isFav ? 'favored' : ''}" onclick="toggleFavorite(event, '${game.id}')">
+                        ${isFav ? '★' : '☆'}
+                    </div>
+                    <div class="game-icon">${game.icon}</div>
+                    <div class="game-title">${game.title}</div>
+                    <div class="game-desc">${game.desc}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // ⭐ 切換我的最愛狀態
+        function toggleFavorite(event, gameId) {
+            event.stopPropagation(); // 💥 CRITICAL: 阻止點擊點到卡片開遊戲
+            
+            if (favorites.includes(gameId)) {
+                favorites = favorites.filter(id => id !== gameId); // 移除最愛
+            } else {
+                favorites.push(gameId); // 加入最愛
+            }
+            
+            localStorage.setItem('lobby_favorites', JSON.stringify(favorites));
+            renderLobby(); // 即時重新排序刷新畫面
+        }
+
+        // ⚙️ 切換大廳排序模式
+        function changeSort(mode) {
+            currentSort = mode;
+            localStorage.setItem('lobby_sort_mode', mode);
+            renderLobby();
+        }
+
+        // ------------------ 以下為計時重整控制球核心模組 ------------------
         function updateCountUI() {
             document.getElementById('refreshCount').innerText = refreshCount;
         }
@@ -223,10 +283,7 @@
             timerInterval = setInterval(() => {
                 countdown--;
                 document.getElementById('devTimer').innerText = countdown;
-                
-                if (countdown <= 0) {
-                    autoRefreshGame(); 
-                }
+                if (countdown <= 0) autoRefreshGame(); 
             }, 1000);
         }
 
@@ -239,7 +296,6 @@
             iframe.src = url + "?t=" + new Date().getTime();
             stage.style.display = "block";
             closeBtn.style.display = "inline-block"; 
-            
             startTimer(); 
         }
 
@@ -269,7 +325,6 @@
             document.getElementById('devTimer').innerText = countdown;
         }
 
-        // 🚪 關閉遊戲回大廳（此處已完美實裝「次數歸零」）
         function closeGame() {
             const stage = document.getElementById('gameStage');
             const iframe = document.getElementById('gameFrame');
@@ -280,16 +335,16 @@
             closeBtn.style.display = "none"; 
             currentUrl = "";
 
-            // 💡 歸零核心程式碼：清除快取紀錄
             refreshCount = 0;
             sessionStorage.setItem('global_refresh_count', refreshCount);
             updateCountUI();
-
             startTimer(); 
         }
 
+        // 初始化載入
         updateCountUI();
         startTimer();
+        renderLobby();
     </script>
 </body>
 </html>
