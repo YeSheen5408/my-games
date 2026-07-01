@@ -257,6 +257,7 @@
             let unique = 0;
             let collectedCounts = { SSR: 0, SR: 0, R: 0 };
 
+            // 1. 遍歷渲染倉庫並計算已收集數量
             ['SSR', 'SR', 'R'].forEach(rarity => {
                 pool[rarity].forEach(char => {
                     if (inventory[char.name]) {
@@ -280,6 +281,7 @@
             
             document.getElementById('unique-count').innerText = unique;
 
+            // 2. 計算剩餘未收集數量（這裡修正了大小寫 ID 尋找錯誤）
             const ssrLeft = pool.SSR.length - collectedCounts.SSR;
             const srLeft = pool.SR.length - collectedCounts.SR;
             const rLeft = pool.R.length - collectedCounts.R;
@@ -298,4 +300,70 @@
             let hasSSR = false;
 
             for (let i = 0; i < times; i++) {
-                let rarity
+                let rarity = 'R';
+                let rand = Math.random() * 100;
+
+                if (times === 10 && i === 9) {
+                    let guaranteeRand = Math.random() * 11;
+                    if (guaranteeRand <= 1) rarity = 'SSR';
+                    else rarity = 'SR';
+                } else {
+                    if (rand <= 1) rarity = 'SSR';
+                    else if (rand <= 11) rarity = 'SR';
+                    else rarity = 'R';
+                }
+
+                if (rarity === 'SSR') hasSSR = true;
+
+                const characters = pool[rarity];
+                const picked = characters[Math.floor(Math.random() * characters.length)];
+                
+                currentResults.push({ ...picked, rarity: rarity });
+                inventory[picked.name] = (inventory[picked.name] || 0) + 1;
+                totalDraws++;
+            }
+
+            localStorage.setItem('gacha_inv', JSON.stringify(inventory));
+            localStorage.setItem('gacha_total', totalDraws);
+
+            // 閃爍特效
+            if (hasSSR) {
+                effect.classList.add('flash-ssr');
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                setTimeout(() => effect.classList.remove('flash-ssr'), 800);
+            } else {
+                effect.style.opacity = '1';
+                setTimeout(() => effect.style.opacity = '0', 150);
+            }
+
+            // 渲染卡片
+            currentResults.forEach((char, index) => {
+                setTimeout(() => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.classList.add('card', char.rarity.toLowerCase());
+                    cardDiv.innerHTML = `
+                        <span class="badge">${char.rarity}</span>
+                        <span class="avatar">${char.icon}</span>
+                        <span style="font-size:10px; scale:0.9;">${char.name}</span>
+                    `;
+                    resultBox.appendChild(cardDiv);
+                }, index * (times === 10 ? 80 : 0));
+            });
+
+            setTimeout(updateUI, times * 80);
+        }
+
+        function clearInventory() {
+            if(confirm("確定要重置所有抽卡數據嗎？")) {
+                inventory = {};
+                totalDraws = 0;
+                localStorage.clear();
+                document.getElementById('result-box').innerHTML = '<p id="placeholder-text" style="color: #666; font-size: 14px;">數據已重置</p>';
+                updateUI();
+            }
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
