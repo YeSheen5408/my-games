@@ -27,7 +27,7 @@
             margin-bottom: 25px;
         }
 
-        /* ⚙️ 全新大廳分類與排序控制台 */
+        /* ⚙️ 大廳分類與排序控制台 */
         .control-panel {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 30px;
@@ -58,7 +58,6 @@
             border-color: #00ffcc;
             box-shadow: 0 0 10px rgba(0,255,204,0.4);
         }
-        /* ⭐ 我的最愛分類按鈕特殊色 */
         #sort-favorites.active {
             background: #ffe600;
             color: #000;
@@ -94,7 +93,6 @@
             background: rgba(255, 255, 255, 0.2);
         }
         
-        /* ⭐ 星星按鈕樣式 */
         .star-btn {
             position: absolute;
             top: 12px;
@@ -112,7 +110,6 @@
             text-shadow: 0 0 8px rgba(255,230,0,0.6);
         }
 
-        /* 標記卡牌的發光特效 */
         .menu-card.is-favored-marked {
             border: 1px solid rgba(255, 230, 0, 0.4);
             box-shadow: 0 4px 15px 0 rgba(255, 230, 0, 0.1);
@@ -182,7 +179,7 @@
     </div>
 
     <h1>🎮 我的小遊戲基地 🚀</h1>
-    <p>點擊卡牌右上角 ⭐ 標記，切換到「⭐ 我的最愛」可查看專屬常用清單！</p>
+    <p>點擊卡牌右上角 ⭐ 標記，切換到「⭐ 我的最愛」分頁查看專屬常用清單！</p>
 
     <div class="control-panel">
         <button class="btn-sort" id="sort-classic" onclick="changeSort('classic')">📜 經典舊到新</button>
@@ -198,7 +195,7 @@
     </div>
 
     <script>
-        // 母體遊戲清單
+        // 母體遊戲清單（新增守衛戰與粒子割草）
         const originalGames = [
             { id: "cards", url: "cards.html", icon: "🧠", title: "記憶力大考驗", desc: "翻開卡牌，考驗你的瞬間記憶力！" },
             { id: "snake", url: "snake.html", icon: "🐍", title: "經典貪食蛇", desc: "控制小蛇吃掉食物，挑戰最高分數！" },
@@ -208,7 +205,9 @@
             { id: "dungeon", url: "dungeon.html", icon: "⚔️", title: "地下城隨機文字冒險", desc: "極簡純文字 RPG。目標挑戰第 10 層巨龍！" },
             { id: "cultivation", url: "cultivation.html", icon: "⚡", title: "賽博修仙：點擊與暴富", desc: "掛機點擊收集修為，股市等你一夕暴富！" },
             { id: "blackjack", url: "blackjack.html", icon: "🃏", title: "經典卡牌：21點對決", desc: "考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！" },
-            { id: "space", url: "space.html", icon: "🚀", title: "極簡彈幕：科幻星戰", desc: "雷射連發！體驗掌上流暢無阻的星際彈幕大戰。" }
+            { id: "space", url: "space.html", icon: "🚀", title: "極簡彈幕：科幻星戰", desc: "雷射連發！體驗掌上流暢無阻的星際彈幕大戰。" },
+            { id: "tower", url: "tower.html", icon: "🏹", title: "極簡策略：王國守衛戰", desc: "佈置箭塔、冰霜塔與火砲，抵禦一波波進犯的像素怪物群！" },
+            { id: "mower", url: "mower.html", icon: "🔮", title: "爽快解壓：霓虹粒子割草", desc: "瘋狂吸取經驗值！體驗全螢幕環狀雷射橫飛的終極割草爽感。" }
         ];
 
         let currentSort = localStorage.getItem('lobby_sort_mode') || 'classic';
@@ -219,16 +218,12 @@
         let currentUrl = "";
         let refreshCount = parseInt(sessionStorage.getItem('global_refresh_count')) || 0;
 
-        // 🔄 升級版大廳渲染引擎
         function renderLobby() {
             const container = document.getElementById('menuContainer');
             container.innerHTML = '';
-
             let displayList = [];
 
-            // 🛠️ 核心改動邏輯
             if (currentSort === 'favorites') {
-                // 【分頁模式】：過濾出只有被加我的最愛的遊戲
                 displayList = originalGames.filter(game => favorites.includes(game.id));
                 if (displayList.length === 0) {
                     container.innerHTML = '<div class="no-fav-msg">目前還沒有收藏任何遊戲喔，快去一般分頁點擊星星標記吧！✨</div>';
@@ -236,7 +231,6 @@
                     return;
                 }
             } else {
-                // 【一般排序模式】：不置頂，維持玩家想要的原始、最新或隨機排列
                 displayList = [...originalGames];
                 if (currentSort === 'newest') {
                     displayList.reverse();
@@ -247,14 +241,11 @@
 
             updateButtonUI();
 
-            // 繪製 HTML 節點
             displayList.forEach(game => {
                 const isFav = favorites.includes(game.id);
-                
                 const card = document.createElement('div');
                 card.className = `menu-card ${isFav ? 'is-favored-marked' : ''}`;
                 card.setAttribute('onclick', `openGame('${game.url}')`);
-
                 card.innerHTML = `
                     <div class="star-btn ${isFav ? 'favored' : ''}" onclick="toggleFavorite(event, '${game.id}')">
                         ${isFav ? '★' : '☆'}
@@ -274,30 +265,24 @@
             }
         }
 
-        // ⭐ 切換我的最愛標記
         function toggleFavorite(event, gameId) {
-            event.stopPropagation(); // 阻止進遊戲
-            
+            event.stopPropagation();
             if (favorites.includes(gameId)) {
                 favorites = favorites.filter(id => id !== gameId);
             } else {
                 favorites.push(gameId);
             }
-            
             localStorage.setItem('lobby_favorites', JSON.stringify(favorites));
-            renderLobby(); // 即時重新整理
+            renderLobby();
         }
 
         function changeSort(mode) {
             currentSort = mode;
-            // 只有一般排序模式才存入快取，避免下次進來直接卡在最愛專區
-            if (mode !== 'favorites') {
-                localStorage.setItem('lobby_sort_mode', mode);
-            }
+            if (mode !== 'favorites') localStorage.setItem('lobby_sort_mode', mode);
             renderLobby();
         }
 
-        // ------------------ 計時器基礎核心模組 ------------------
+        // 計時模組
         function updateCountUI() { document.getElementById('refreshCount').innerText = refreshCount; }
         function startTimer() {
             clearInterval(timerInterval); countdown = 60; document.getElementById('devTimer').innerText = countdown;
