@@ -19,6 +19,21 @@
         }
         h1 { color: #00ffcc; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
         
+        /* 新增：快取異常故障排除提示（玩家防呆） */
+        .cache-notice {
+            width: 100%;
+            max-width: 360px;
+            background: rgba(255, 153, 0, 0.15);
+            border: 1px solid #ff9900;
+            color: #ffcc66;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            text-align: left;
+        }
+
         /* 狀態提示欄 */
         .status-bar {
             width: 100%;
@@ -39,7 +54,7 @@
         .dp-black { background: #0077ff; box-shadow: 0 0 5px #0077ff; } 
         .dp-white { background: #fff; box-shadow: 0 0 5px #fff; }       
 
-        /* 強制顯示：新手規則提示面板 */
+        /* 新手規則提示面板 */
         .rule-panel {
             width: 100%;
             max-width: 360px;
@@ -50,7 +65,7 @@
             padding: 12px;
             font-size: 12px;
             color: #ccc;
-            display: block !important; /* 確保面板外框絕對不消失 */
+            display: block !important;
         }
         .rule-title {
             color: #00ffcc;
@@ -139,6 +154,12 @@
 
     <h1>賽博黑白棋 🔮</h1>
     
+    <!-- ⚠️ 新增的玩家疑難排解提示區塊 -->
+    <div class="cache-notice">
+        💡 <b>介面顯示異常提示：</b><br>
+        若更新後沒看到規則說明，請在手機或電腦瀏覽器上<b>重新整理（F5）</b>，或者<b>用無痕模式</b>打開網頁試試看，這樣就能避開快取問題，直接抓到最新加上去的規則欄了！
+    </div>
+    
     <!-- 狀態欄 -->
     <div class="status-bar">
         <div id="game-info">🔵 玩家回合</div>
@@ -148,7 +169,7 @@
         </div>
     </div>
 
-    <!-- 規則說明欄（優化 JavaScript 判斷邏輯） -->
+    <!-- 規則說明欄 -->
     <div class="rule-panel">
         <div class="rule-title" onclick="toggleRules()">
             <span>📜 如何遊玩（規則說明）</span>
@@ -184,7 +205,6 @@
             [1,-1],  [1,0],  [1,1]
         ];
 
-        // 修正切換邏輯，精準比對 display 狀態
         function toggleRules() {
             const content = document.getElementById('rule-text');
             const arrow = document.getElementById('rule-arrow');
