@@ -143,7 +143,7 @@
         <div class="ips-text">自動凝聚中：+<span id="ips-text">0</span> 修為/秒</div>
     </div>
 
-    <div class="core-clicker" onclick="clickCore()">⚡<br>凝聚修為</div>
+    <div class="core-clicker" id="click-target">⚡<br>凝聚修為</div>
 
     <button class="btn-gamble btn-break" id="break-btn" onclick="breakthrough()">🔮 渡劫突破下一重 (花費: 100)</button>
 
@@ -182,7 +182,6 @@
     <button class="btn-gamble" style="background:#222; width:100%; max-width:400px; margin-top:25px;" onclick="location.href='index.html'">回大廳</button>
 
     <script>
-        // 遊戲核心數據
         let energy = 0;
         let clickPower = 1;
         let totalIps = 0;
@@ -190,22 +189,119 @@
         let realmLayer = 1;
         const realmNames = ["肉體凡胎", "煉氣期", "築基期", "金丹期", "元嬰期", "化神期", "渡劫成仙"];
 
-        // 法寶數據配置
         let items = [
             { name: "賽博木魚", lv: 0, cost: 15, ips: 1 },
             { name: "量子聚靈陣", lv: 0, cost: 100, ips: 8 },
             { name: "太虛伺服器", lv: 0, cost: 800, ips: 50 }
         ];
 
-        // 突破下一重所需花費公式
         function getBreakCost() {
             return Math.round(100 * Math.pow(1.8, realmLayer - 1));
         }
 
-        // 手動點擊
-        function clickCore() {
+        // 核心點擊修正：獨立觸發並立刻更新 UI
+        function clickCore(e) {
+            if (e) e.preventDefault(); // 防止雙擊放大
             energy += clickPower;
             updateUI();
         }
 
-        // 購買自動化
+        // 綁定點擊事件（兼顧手機與電腦）
+        const clickTarget = document.getElementById('click-target');
+        clickTarget.addEventListener('touchstart', clickCore, { passive: false });
+        clickTarget.addEventListener('mousedown', (e) => {
+            // 如果是觸控裝置觸發的 mousedown 就忽略，避免重複觸發
+            if (e.detail === 0) return; 
+            clickCore();
+        });
+
+        function buyItem(index) {
+            let item = items[index];
+            if (energy >= item.cost) {
+                energy -= item.cost;
+                item.lv++;
+                item.cost = Math.round(item.cost * 1.15);
+                calculateIps();
+                updateUI();
+            }
+        }
+
+        function calculateIps() {
+            totalIps = 0;
+            items.forEach(item => {
+                totalIps += item.lv * item.ips;
+            });
+            document.getElementById('ips-text').innerText = totalIps;
+        }
+
+        function breakthrough() {
+            let cost = getBreakCost();
+            if (energy >= cost) {
+                energy -= cost;
+                realmLayer++;
+                
+                // 修正增幅公式：大幅增強點擊力
+                clickPower = Math.round(1 + (realmLayer - 1) * 3 * Math.pow(1.5, Math.floor((realmLayer-1)/3)));
+                
+                addStockLog(`✨ ⚡ 轟隆！你成功渡過天劫，突破至新境界！點擊威力提升至 +${clickPower}！`);
+                updateUI();
+            }
+        }
+
+        function invest(predictUp) {
+            if (energy < 10) {
+                alert("道友身上修為不夠，最低需 10 點修為才能對賭！");
+                return;
+            }
+
+            let isUp = Math.random() < 0.5; 
+            let win = (predictUp && isUp) || (!predictUp && !isUp);
+            let currentEnergy = energy;
+
+            if (win) {
+                energy *= 2;
+                let gain = energy - currentEnergy;
+                addStockLog(`🟢 【暴富】大盤${isUp?'暴漲📈':'暴跌📉'}！你押對了方向！修為瞬間翻倍，賺取了 ${Math.round(gain)} 點修為！`);
+            } else {
+                energy = Math.max(1, Math.floor(energy * 0.05)); 
+                addStockLog(`🔴 【破產】大盤${isUp?'暴漲📈':'暴跌📉'}！不幸押錯方向，資產慘賠 95%！`);
+            }
+            updateUI();
+        }
+
+        function addStockLog(text) {
+            document.getElementById('stock-log').innerHTML = text;
+        }
+
+        function updateUI() {
+            document.getElementById('energy-text').innerText = Math.floor(energy);
+            
+            let nameIndex = Math.min(Math.floor((realmLayer - 1) / 3), realmNames.length - 1);
+            let subLayer = ((realmLayer - 1) % 3) + 1;
+            document.getElementById('realm-text').innerText = `🔮 境界：${realmNames[nameIndex]} (${subLayer} 重)`;
+
+            let breakCost = getBreakCost();
+            const breakBtn = document.getElementById('break-btn');
+            breakBtn.innerText = `🔮 渡劫突破下一重 (花費: ${breakCost})`;
+            breakBtn.disabled = energy < breakCost;
+
+            items.forEach((item, index) => {
+                document.getElementById(`items-${index}-lv`).innerText = item.lv;
+                const btn = document.getElementById(`items-${index}-btn`);
+                btn.innerText = `花費: ${item.cost}`;
+                btn.disabled = energy < item.cost;
+            });
+        }
+
+        // 掛機核心定時器（改為只加數值，不影響手動按鈕更新）
+        setInterval(() => {
+            if (totalIps > 0) {
+                energy += totalIps / 10;
+                // 每0.1秒更新一次數字顯示
+                document.getElementById('energy-text').innerText = Math.floor(energy);
+                
+                // 同步控制按鈕狀態
+                let breakCost = getBreakCost();
+                document.getElementById('break-btn').disabled = energy < breakCost;
+                items.forEach((item, index) => {
+                    document.
