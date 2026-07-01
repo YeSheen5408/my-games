@@ -197,4 +197,105 @@
         </div>
         <div class="info-row">
             <span class="color-sr">★ SR (機率 10.0%)</span>
-            <span id="sr
+            <span id="sr-remain">還差 3 個未收集</span>
+        </div>
+        <div class="info-row">
+            <span class="color-r">★ R (機率 89.0%)</span>
+            <span id="r-remain">還差 3 個未收集</span>
+        </div>
+    </div>
+
+    <div class="gacha-stage">
+        <div class="effect-layer" id="effect"></div>
+        <div class="result-display" id="result-box">
+            <p id="placeholder-text" style="color: #666; font-size: 14px;">點擊下方按鈕開始召喚</p>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-single" onclick="draw(1)">單抽 💎150</button>
+        <button class="btn btn-multi" onclick="draw(10)">十連抽 🔥1500</button>
+    </div>
+
+    <div class="inventory-section">
+        <div class="inventory-title">
+            <span>冒險者倉庫</span>
+            <span style="font-size:12px; color:#aaa; cursor:pointer;" onclick="clearInventory()">重置數據</span>
+        </div>
+        <div class="inventory-grid" id="inventory-box"></div>
+    </div>
+
+    <script>
+        // 角色資料庫
+        const pool = {
+            SSR: [
+                { name: "𝝠𝝾𝝵 核心", icon: "🤖" },
+                { name: "霓虹刺客", icon: "🥷" },
+                { name: "時空魔導", icon: "🧙‍♀️" }
+            ],
+            SR: [
+                { name: "重裝戰警", icon: "👮‍♂️" },
+                { name: "駭客少女", icon: "👩‍💻" },
+                { name: "異能槍手", icon: "🤠" }
+            ],
+            R: [
+                { name: "街頭混混", icon: "🧑‍🎤" },
+                { name: "無人機", icon: "🛸" },
+                { name: "仿生工兵", icon: "👷‍♂️" }
+            ]
+        };
+
+        let inventory = JSON.parse(localStorage.getItem('gacha_inv')) || {};
+        let totalDraws = parseInt(localStorage.getItem('gacha_total')) || 0;
+
+        function updateUI() {
+            document.getElementById('total-count').innerText = totalDraws;
+            
+            const invBox = document.getElementById('inventory-box');
+            invBox.innerHTML = '';
+            
+            let unique = 0;
+            let collectedCounts = { SSR: 0, SR: 0, R: 0 };
+
+            ['SSR', 'SR', 'R'].forEach(rarity => {
+                pool[rarity].forEach(char => {
+                    if (inventory[char.name]) {
+                        unique++;
+                        collectedCounts[rarity]++;
+                        
+                        const item = document.createElement('div');
+                        item.classList.add('inv-item');
+                        if(rarity === 'SSR') item.style.border = '1px solid #ffcc00';
+                        if(rarity === 'SR') item.style.border = '1px solid #da70d6';
+                        
+                        item.innerHTML = `
+                            <div style="font-size:20px">${char.icon}</div>
+                            <div style="font-size:10px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${char.name}</div>
+                            <div class="count">x${inventory[char.name]}</div>
+                        `;
+                        invBox.appendChild(item);
+                    }
+                });
+            });
+            
+            document.getElementById('unique-count').innerText = unique;
+
+            const ssrLeft = pool.SSR.length - collectedCounts.SSR;
+            const srLeft = pool.SR.length - collectedCounts.SR;
+            const rLeft = pool.R.length - collectedCounts.R;
+
+            document.getElementById('ssr-remain').innerText = ssrLeft === 0 ? "🎉 已完全收集！" : `還差 ${ssrLeft} 個未收集`;
+            document.getElementById('sr-remain').innerText = srLeft === 0 ? "🎉 已完全收集！" : `還差 ${srLeft} 個未收集`;
+            document.getElementById('r-remain').innerText = rLeft === 0 ? "🎉 已完全收集！" : `還差 ${rLeft} 個未收集`;
+        }
+
+        function draw(times) {
+            const resultBox = document.getElementById('result-box');
+            const effect = document.getElementById('effect');
+            resultBox.innerHTML = '';
+            
+            let currentResults = [];
+            let hasSSR = false;
+
+            for (let i = 0; i < times; i++) {
+                let rarity
