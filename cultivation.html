@@ -35,7 +35,7 @@
         .energy-count { font-size: 32px; font-weight: bold; color: #00ffcc; margin: 10px 0; text-shadow: 0 0 8px #00ffcc; }
         .ips-text { font-size: 13px; color: #aaa; }
 
-        /* 大核心修煉按鈕 */
+        /* 大核心修煉按鈕 - 確保在 iframe 中完美適應 */
         .core-clicker {
             width: 130px;
             height: 130px;
@@ -143,7 +143,7 @@
         <div class="ips-text">自動凝聚中：+<span id="ips-text">0</span> 修為/秒</div>
     </div>
 
-    <div class="core-clicker" id="click-target">⚡<br>凝聚修為</div>
+    <div class="core-clicker" onclick="clickCore()">⚡<br>凝聚修為</div>
 
     <button class="btn-gamble btn-break" id="break-btn" onclick="breakthrough()">🔮 渡劫突破下一重 (花費: 100)</button>
 
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    <button class="btn-gamble" style="background:#222; width:100%; max-width:400px; margin-top:25px;" onclick="location.href='index.html'">回大廳</button>
+    <button class="btn-gamble" style="background:#222; width:100%; max-width:400px; margin-top:25px;" onclick="if(window.parent && window.parent.closeGame){window.parent.closeGame()}else{location.href='index.html'}">回大廳</button>
 
     <script>
         let energy = 0;
@@ -199,21 +199,11 @@
             return Math.round(100 * Math.pow(1.8, realmLayer - 1));
         }
 
-        // 核心點擊修正：獨立觸發並立刻更新 UI
-        function clickCore(e) {
-            if (e) e.preventDefault(); // 防止雙擊放大
+        // 最純粹的點擊函數：加數值、立刻強刷畫面、更新按鈕
+        function clickCore() {
             energy += clickPower;
             updateUI();
         }
-
-        // 綁定點擊事件（兼顧手機與電腦）
-        const clickTarget = document.getElementById('click-target');
-        clickTarget.addEventListener('touchstart', clickCore, { passive: false });
-        clickTarget.addEventListener('mousedown', (e) => {
-            // 如果是觸控裝置觸發的 mousedown 就忽略，避免重複觸發
-            if (e.detail === 0) return; 
-            clickCore();
-        });
 
         function buyItem(index) {
             let item = items[index];
@@ -240,7 +230,7 @@
                 energy -= cost;
                 realmLayer++;
                 
-                // 修正增幅公式：大幅增強點擊力
+                // 境界提升：大幅增加手動點擊力
                 clickPower = Math.round(1 + (realmLayer - 1) * 3 * Math.pow(1.5, Math.floor((realmLayer-1)/3)));
                 
                 addStockLog(`✨ ⚡ 轟隆！你成功渡過天劫，突破至新境界！點擊威力提升至 +${clickPower}！`);
@@ -274,6 +264,7 @@
         }
 
         function updateUI() {
+            // 全面強刷所有數字顯示，確保即時性
             document.getElementById('energy-text').innerText = Math.floor(energy);
             
             let nameIndex = Math.min(Math.floor((realmLayer - 1) / 3), realmNames.length - 1);
@@ -293,15 +284,23 @@
             });
         }
 
-        // 掛機核心定時器（改為只加數值，不影響手動按鈕更新）
+        // 定時器：只加數值與刷新數字，不干涉 UI 點擊後的自體刷新
         setInterval(() => {
             if (totalIps > 0) {
                 energy += totalIps / 10;
-                // 每0.1秒更新一次數字顯示
                 document.getElementById('energy-text').innerText = Math.floor(energy);
                 
-                // 同步控制按鈕狀態
+                // 動態切換按鈕的可點擊狀態
                 let breakCost = getBreakCost();
                 document.getElementById('break-btn').disabled = energy < breakCost;
                 items.forEach((item, index) => {
-                    document.
+                    document.getElementById(`items-${index}-btn`).disabled = energy < item.cost;
+                });
+            }
+        }, 100);
+
+        calculateIps();
+        updateUI();
+    </script>
+</body>
+</html>
