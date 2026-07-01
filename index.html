@@ -13,8 +13,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 40px 20px;
         }
         h1 {
             font-size: 2.5rem;
@@ -30,8 +31,9 @@
             gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 600px;
+            max-width: 700px;
         }
+        /* 移除原本的 href 改用 JS 觸發，故指針設為 pointer */
         .menu-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -40,10 +42,11 @@
             padding: 25px;
             width: 200px;
             text-align: center;
-            text-decoration: none;
             color: #fff;
             transition: transform 0.3s, background 0.3s;
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
+            cursor: pointer;
+            user-select: none;
         }
         .menu-card:hover {
             transform: translateY(-10px);
@@ -62,6 +65,71 @@
             font-size: 0.9rem;
             color: #ccc;
         }
+
+        /* ==========================================================================
+           🎨 全新功能：全螢幕遊戲舞台 (Game Stage iframe)
+           ========================================================================== */
+        .game-stage-container {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #121214;
+            z-index: 9999;
+        }
+        .game-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* ==========================================================================
+           🎨 全新功能：右上角全域開發者懸浮重整球 (Dev Floating Ball)
+           ========================================================================== */
+        .dev-floater {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #ffe600;
+            border-radius: 30px;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            z-index: 100000; /* 層級最高，絕對壓在遊戲畫面上 */
+            box-shadow: 0 4px 15px rgba(255,230,0,0.3);
+            font-family: monospace;
+        }
+        .timer-highlight {
+            color: #ffe600;
+            font-weight: bold;
+        }
+        .btn-dev-refresh {
+            background: #ff0055;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-dev-refresh:hover { background: #ff3377; }
+        .btn-dev-close {
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .btn-dev-close:hover { background: #777; }
     </style>
 </head>
 <body>
@@ -70,49 +138,95 @@
     <p>歡迎光臨！請選擇你想挑戰的小遊戲：</p>
 
     <div class="menu-container">
-        <a href="cards.html" class="menu-card">
+        <div onclick="openGame('cards.html')" class="menu-card">
             <div class="game-icon">🧠</div>
             <div class="game-title">記憶力大考驗</div>
             <div class="game-desc">翻開卡牌，考驗你的瞬間記憶力！</div>
-        </a>
+        </div>
 
-        <a href="snake.html" class="menu-card">
+        <div onclick="openGame('snake.html')" class="menu-card">
             <div class="game-icon">🐍</div>
             <div class="game-title">經典貪食蛇</div>
             <div class="game-desc">控制小蛇吃掉食物，挑戰最高分數！</div>
-        </a>
+        </div>
 
-        <a href="gacha.html" class="menu-card">
+        <div onclick="openGame('gacha.html')" class="menu-card">
             <div class="game-icon">💎</div>
             <div class="game-title">冒險者抽卡</div>
             <div class="game-desc">測試你的脫非入歐運氣，挑戰集滿全圖鑑！</div>
-        </a>
+        </div>
 
-        <a href="mines.html" class="menu-card">
+        <div onclick="openGame('mines.html')" class="menu-card">
             <div class="game-icon">💣</div>
             <div class="game-title">經典踩地雷</div>
             <div class="game-desc">考驗邏輯與運氣，用智慧找出所有地雷！</div>
-        </a>
+        </div>
 
-        <!-- 遊戲 4：賽博黑白棋 -->
-        <a href="reversi.html" class="menu-card">
+        <div onclick="openGame('reversi.html')" class="menu-card">
             <div class="game-icon">🔮</div>
             <div class="game-title">賽博黑白棋</div>
             <div class="game-desc">圍夾翻轉！與極智 AI 展開棋盤上的黑白攻防大戰。</div>
-        </a>
+        </div>
 
-        <a href="dungeon.html" class="menu-card">
+        <div onclick="openGame('dungeon.html')" class="menu-card">
             <div class="game-icon">⚔️</div>
             <div class="game-title">地下城隨機文字冒險</div>
             <div class="game-desc">極簡純文字 RPG。打怪、奪寶、走訪商店，目標挑戰第 10 層巨龍！</div>
-        </a>
+        </div>
 
-        <a href="cultivation.html" class="menu-card">
+        <div onclick="openGame('cultivation.html')" class="menu-card">
             <div class="game-icon">⚡</div>
             <div class="game-title">賽博修仙：點擊與暴富</div>
             <div class="game-desc">掛機點擊收集修為，更有隨機翻倍或歸零的賽博股市等你一夕暴富！</div>
-        </a>
+        </div>
     </div>
 
-</body>
-</html>
+    <div class="game-stage-container" id="gameStage">
+        <div class="dev-floater">
+            <span>⏳ 快取刷新倒數: <span class="timer-highlight" id="devTimer">60</span>s</span>
+            <button class="btn-dev-refresh" onclick="forceRefreshGame()">🔄 強制重整破快取</button>
+            <button class="btn-dev-close" onclick="closeGame()">🚪 回大廳</button>
+        </div>
+        <iframe class="game-iframe" id="gameFrame" src=""></iframe>
+    </div>
+
+    <script>
+        let countdown = 60;
+        let timerInterval = null;
+        let currentUrl = "";
+
+        // 啟動 60 秒循環計時器
+        function startTimer() {
+            clearInterval(timerInterval);
+            countdown = 60;
+            document.getElementById('devTimer').innerText = countdown;
+
+            timerInterval = setInterval(() => {
+                countdown--;
+                document.getElementById('devTimer').innerText = countdown;
+                
+                // 倒數到 0 秒時，自動觸發強制重整，並重新循環
+                if (countdown <= 0) {
+                    forceRefreshGame();
+                }
+            }, 1000);
+        }
+
+        // 1. 打開遊戲舞台
+        function openGame(url) {
+            currentUrl = url;
+            const stage = document.getElementById('gameStage');
+            const iframe = document.getElementById('gameFrame');
+            
+            // 首次加載加上時間戳防快取
+            iframe.src = url + "?t=" + new Date().getTime();
+            stage.style.display = "block";
+            
+            startTimer(); // 啟動倒數
+        }
+
+        // 2. 核心功能：強制重整小遊戲（利用亂數時間戳完美破除快取）
+        function forceRefreshGame() {
+            const iframe = document.getElementById('gameFrame');
+            if (currentUrl) {
+                // 網址後面強
