@@ -20,7 +20,7 @@
         h1 { color: #00ffcc; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
         .stats { font-size: 14px; color: #aaa; margin-bottom: 15px; }
         
-        /* 新增：機率與剩餘數量公告欄 */
+        /* 機率與圖鑑剩餘數量公告欄 */
         .info-panel {
             width: 100%;
             max-width: 400px;
@@ -197,32 +197,4 @@
         </div>
         <div class="info-row">
             <span class="color-sr">★ SR (機率 10.0%)</span>
-            <span id="sr-remain">還差 3 個未收集</span>
-        </div>
-        <div class="info-row">
-            <span class="color-r">★ R (機率 89.0%)</span>
-            <span id="r-remain">還差 3 個未收集</span>
-        </div>
-    </div>
-
-    <div class="gacha-stage">
-        <div class="effect-layer" id="effect"></div>
-        <div class="result-display" id="result-box">
-            <p id="placeholder-text" style="color: #666; font-size: 14px;">點擊下方按鈕開始召喚</p>
-        </div>
-    </div>
-
-    <div class="btn-group">
-        <button class="btn btn-single" onclick="draw(1)">單抽 💎150</button>
-        <button class="btn btn-multi" onclick="draw(10)">十連抽 🔥1500</button>
-    </div>
-
-    <div class="inventory-section">
-        <div class="inventory-title">
-            <span>冒險者倉庫</span>
-            <span style="font-size:12px; color:#aaa; cursor:pointer;" onclick="clearInventory()">重置數據</span>
-        </div>
-        <div class="inventory-grid" id="inventory-box"></div>
-    </div>
-
-    <script
+            <span id="sr
