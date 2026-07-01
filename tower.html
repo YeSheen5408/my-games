@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>極簡策略：王國守衛戰 🏹</title>
+    <title>極簡策略：王國守衛戰 🏹 (天道存檔版)</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
@@ -40,28 +40,35 @@
         <div class="build-btn" id="btn-cannon" onclick="selectTower('cannon')">💣 火砲塔<br><span style="color:#ffe600">150g</span></div>
     </div>
 
-    <button class="btn-lobby" onclick="if(window.parent && window.parent.closeGame){window.parent.closeGame()}else{location.href='index.html'}">🚪 棄防回大廳</button>
+    <button class="btn-lobby" onclick="clearSaveAndExit()">🚪 放棄守護回大廳</button>
 
     <script>
         const canvas = document.getElementById('towerCanvas');
         const ctx = canvas.getContext('2d');
 
-        let gold = 150;
-        let wave = 1;
-        let hp = 10;
+        // 💾 核心：初始化時先嘗試讀取 localStorage 的「戰局殘留存檔」
+        let gold = parseInt(localStorage.getItem('td_save_gold')) ?? 150;
+        let wave = parseInt(localStorage.getItem('td_save_wave')) ?? 1;
+        let hp = parseInt(localStorage.getItem('td_save_hp')) ?? 10;
+        
+        // 防呆防死：如果讀出來的血量小於等於 0，自動重設為新局
+        if (isNaN(gold) || isNaN(wave) || isNaN(hp) || hp <= 0) {
+            gold = 150; wave = 1; hp = 10;
+        }
+
         let gameOver = false;
         let selectedTowerType = 'arrow';
 
-        // 🗺️ 簡易固定敵軍路徑點 (X, Y)
         const path = [
             {x: 0, y: 60}, {x: 260, y: 60}, {x: 260, y: 220}, {x: 100, y: 220}, {x: 100, y: 320}, {x: 360, y: 320}
         ];
 
-        let towers = [];
+        // 💾 塔防建築物也加入存檔記憶（重整後蓋好的塔還會在！）
+        let towers = JSON.parse(localStorage.getItem('td_save_towers')) || [];
         let enemies = [];
         let projectiles = [];
         let spawnTimer = 0;
-        let enemiesToSpawn = 5;
+        let enemiesToSpawn = 5 + Math.floor(wave * 1.5);
         let waveActive = true;
 
         const towerConfigs = {
@@ -70,20 +77,46 @@
             cannon: { cost: 150, range: 90, cd: 70, color: '#ffaa00', icon: '💣' }
         };
 
+        // 💾 即時將戰局儲存到天道的同步函數
+        function saveGameState() {
+            localStorage.setItem('td_save_gold', gold);
+            localStorage.setItem('td_save_wave', wave);
+            localStorage.setItem('td_save_hp', hp);
+            localStorage.setItem('td_save_towers', JSON.stringify(towers));
+        }
+
+        // 💾 點擊離開按鈕時，主動清除存檔（代表玩家自己不想玩了，下次進來才是新的一局）
+        function clearSaveAndExit() {
+            localStorage.removeItem('td_save_gold');
+            localStorage.removeItem('td_save_wave');
+            localStorage.removeItem('td_save_hp');
+            localStorage.removeItem('td_save_towers');
+            if(window.parent && window.parent.closeGame){
+                window.parent.closeGame();
+            } else {
+                location.href='index.html';
+            }
+        }
+
+        // 更新頂部顯示
+        function updateHudUI() {
+            document.getElementById('gold-text').innerText = gold;
+            document.getElementById('wave-text').innerText = wave;
+            document.getElementById('hp-text').innerText = hp;
+        }
+
         function selectTower(type) {
             selectedTowerType = type;
             document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${type}`).classList.add('active');
         }
 
-        // 📱 點擊網格地圖建造或升級防禦塔
         canvas.addEventListener('click', (e) => {
             if (gameOver) return;
             const rect = canvas.getBoundingClientRect();
             const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
             const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-            // 檢查是否點到現有的塔（有點到就升級）
             for (let t of towers) {
                 if (Math.hypot(t.x - clickX, t.y - clickY) < 18) {
                     let cost = Math.floor(towerConfigs[t.type].cost * 0.7);
@@ -91,44 +124,41 @@
                         gold -= cost;
                         t.level++;
                         t.range += 10;
-                        document.getElementById('gold-text').innerText = gold;
+                        updateHudUI();
+                        saveGameState(); // 蓋塔/升級塔後立刻存檔
                     }
                     return;
                 }
             }
 
-            // 建造新塔
             let cfg = towerConfigs[selectedTowerType];
             if (gold >= cfg.cost) {
-                // 簡易路徑碰撞防護：離通道太近不給蓋
                 for (let i = 0; i < path.length - 1; i++) {
                     if (clickY > path[i].y - 20 && clickY < path[i].y + 20) return; 
                 }
                 gold -= cfg.cost;
                 towers.push({ x: clickX, y: clickY, type: selectedTowerType, level: 1, range: cfg.range, cdTimer: 0 });
-                document.getElementById('gold-text').innerText = gold;
+                updateHudUI();
+                saveGameState(); // 蓋塔/升級塔後立刻存檔
             }
         });
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 🧱 1. 繪製防線通道
             ctx.strokeStyle = '#282d42'; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
             for(let p of path) ctx.lineTo(p.x, p.y); ctx.stroke();
 
             if (!gameOver) {
-                // 2. 出怪邏輯
                 if (waveActive && enemiesToSpawn > 0) {
                     spawnTimer++;
                     if (spawnTimer > 45) {
-                        enemies.push({ x: path[0].x, y: path[0].y, pathIndex: 0, hp: 10 + wave * 4, maxHp: 10 + wave * 4, speed: 1.2, slowed: false, slowDuration: 0 });
+                        enemies.push({ x: path[0].x, y: path[0].y, pathIndex: 0, hp: 10 + wave * 5, maxHp: 10 + wave * 5, speed: 1.2, slowed: false, slowDuration: 0 });
                         enemiesToSpawn--; spawnTimer = 0;
                     }
                 }
 
-                // 3. 處理怪物移動與繪製
                 for (let i = enemies.length - 1; i >= 0; i--) {
                     let e = enemies[i];
                     let speed = e.slowed ? e.speed * 0.5 : e.speed;
@@ -142,41 +172,38 @@
                         e.pathIndex++;
                         if (e.pathIndex >= path.length - 1) {
                             hp--; enemies.splice(i, 1);
-                            document.getElementById('hp-text').innerText = hp;
-                            if (hp <= 0) gameOver = true;
+                            updateHudUI();
+                            saveGameState(); // 被扣血時立刻自動存檔
+                            if (hp <= 0) {
+                                gameOver = true;
+                                localStorage.removeItem('td_save_gold'); // 輸了就清空存檔
+                            }
                             continue;
                         }
                     }
 
-                    // 畫怪物
                     ctx.fillStyle = e.slowed ? '#00bfff' : '#ff0055';
                     ctx.beginPath(); ctx.arc(e.x, e.y, 8, 0, Math.PI*2); ctx.fill();
-                    // 血條
                     ctx.fillStyle = '#444'; ctx.fillRect(e.x - 10, e.y - 14, 20, 3);
                     ctx.fillStyle = '#00ffcc'; ctx.fillRect(e.x - 10, e.y - 14, (e.hp / e.maxHp) * 20, 3);
                 }
 
-                // 下一波檢測
                 if (enemies.length === 0 && enemiesToSpawn === 0) {
                     wave++; enemiesToSpawn = 5 + Math.floor(wave * 1.5); waveActive = true; gold += 50 + wave * 10;
-                    document.getElementById('wave-text').innerText = wave;
-                    document.getElementById('gold-text').innerText = gold;
+                    updateHudUI();
+                    saveGameState(); // 順利守下這一波時，立刻自動存檔
                 }
 
-                // 4. 防禦塔開火邏輯
                 for (let t of towers) {
                     let cfg = towerConfigs[t.type];
-                    // 畫塔範圍圈 (輕微半透明)
                     ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
-                    // 畫塔本身
                     ctx.fillStyle = cfg.color; ctx.beginPath(); ctx.arc(t.x, t.y, 12, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
                     ctx.fillText(`L${t.level}`, t.x, t.y + 4);
 
                     if (t.cdTimer > 0) { t.cdTimer--; continue; }
 
-                    // 尋找範圍內的怪物
                     for (let e of enemies) {
                         if (Math.hypot(e.x - t.x, e.y - t.y) < t.range) {
                             projectiles.push({ x: t.x, y: t.y, target: e, type: t.type, dmg: 3 + t.level * 2, speed: 5 });
@@ -186,7 +213,6 @@
                     }
                 }
 
-                // 5. 飛彈渲染
                 for (let i = projectiles.length - 1; i >= 0; i--) {
                     let p = projectiles[i];
                     if (!enemies.includes(p.target)) { projectiles.splice(i, 1); continue; }
@@ -202,7 +228,11 @@
                         if (p.type === 'ice') { p.target.slowed = true; p.target.slowDuration = 90; }
                         if (p.target.hp <= 0) {
                             let idx = enemies.indexOf(p.target);
-                            if (idx > -1) { enemies.splice(idx, 1); gold += 15; document.getElementById('gold-text').innerText = gold; }
+                            if (idx > -1) { 
+                                enemies.splice(idx, 1); gold += 15; 
+                                updateHudUI();
+                                saveGameState(); // 擊殺怪獸賺到錢，立刻自動存檔
+                            }
                         }
                         projectiles.splice(i, 1);
                     }
@@ -215,6 +245,9 @@
 
             requestAnimationFrame(gameLoop);
         }
+
+        // 初始化第一次渲染介面
+        updateHudUI();
         gameLoop();
     </script>
 </body>
