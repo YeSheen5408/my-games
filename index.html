@@ -82,7 +82,7 @@
             border: none;
         }
 
-        /* 右上角全域開發者懸浮重整球 */
+        /* 💡 右上角全域開發者懸浮重整球（移到最外層，確保隨時可見） */
         .dev-floater {
             position: fixed;
             top: 15px;
@@ -123,11 +123,18 @@
             padding: 4px 10px;
             font-size: 11px;
             cursor: pointer;
+            display: none; /* 預設在大廳時不需要顯示「回大廳」按鈕 */
         }
         .btn-dev-close:hover { background: #777; }
     </style>
 </head>
 <body>
+
+    <div class="dev-floater">
+        <span>⏳ 快取刷新: <span class="timer-highlight" id="devTimer">60</span>s</span>
+        <button class="btn-dev-refresh" onclick="forceRefreshGame()">🔄 強制重整</button>
+        <button class="btn-dev-close" id="devCloseBtn" onclick="closeGame()">🚪 回大廳</button>
+    </div>
 
     <h1>🎮 我的小遊戲基地 🚀</h1>
     <p>歡迎光臨！請選擇你想挑戰的小遊戲：</p>
@@ -174,14 +181,15 @@
             <div class="game-title">賽博修仙：點擊與暴富</div>
             <div class="game-desc">掛機點擊收集修為，更有隨機翻倍或歸零的賽博股市等你一夕暴富！</div>
         </div>
+        
+        <div onclick="openGame('blackjack.html')" class="menu-card">
+            <div class="game-icon">🃏</div>
+            <div class="game-title">經典卡牌：21點對決</div>
+            <div class="game-desc">考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！</div>
+        </div>
     </div>
 
     <div class="game-stage-container" id="gameStage">
-        <div class="dev-floater">
-            <span>⏳ 快取刷新倒數: <span class="timer-highlight" id="devTimer">60</span>s</span>
-            <button class="btn-dev-refresh" onclick="forceRefreshGame()">🔄 強制重整破快取</button>
-            <button class="btn-dev-close" onclick="closeGame()">🚪 回大廳</button>
-        </div>
         <iframe class="game-iframe" id="gameFrame" src=""></iframe>
     </div>
 
@@ -211,34 +219,45 @@
             currentUrl = url;
             const stage = document.getElementById('gameStage');
             const iframe = document.getElementById('gameFrame');
+            const closeBtn = document.getElementById('devCloseBtn');
             
-            // 首次加載加上時間戳防快取
             iframe.src = url + "?t=" + new Date().getTime();
             stage.style.display = "block";
+            closeBtn.style.display = "inline-block"; // 顯示回大廳按鈕
             
             startTimer(); 
         }
 
-        // 2. 強制重整小遊戲
+        // 2. 強制重整小遊戲或大廳
         function forceRefreshGame() {
             const iframe = document.getElementById('gameFrame');
-            if (currentUrl) {
+            if (currentUrl && document.getElementById('gameStage').style.display === "block") {
+                // 如果正在遊戲中，重整遊戲並加時間戳破快取
                 iframe.src = currentUrl + "?t=" + new Date().getTime();
-                countdown = 60; 
-                document.getElementById('devTimer').innerText = countdown;
-                console.log(`[Dev Tool] 已對 ${currentUrl} 執行去快取重整`);
+                console.log(`[Dev Tool] 已對遊戲 ${currentUrl} 執行強力去快取重整`);
+            } else {
+                // 如果在大廳，直接重整大廳網頁
+                location.href = "index.html?t=" + new Date().getTime();
             }
+            countdown = 60; 
+            document.getElementById('devTimer').innerText = countdown;
         }
 
-        // 3. 關閉遊戲舞台回大廳（此處已修正語法錯誤）
+        // 3. 關閉遊戲舞台回大廳
         function closeGame() {
-            clearInterval(timerInterval);
             const stage = document.getElementById('gameStage');
             const iframe = document.getElementById('gameFrame');
+            const closeBtn = document.getElementById('devCloseBtn');
             
             iframe.src = ""; 
             stage.style.display = "none";
+            closeBtn.style.display = "none"; // 隱藏回大廳按鈕
+            currentUrl = "";
+            startTimer(); // 大廳繼續維持計時
         }
+
+        // 網頁一打開就立刻啟動全域計時器
+        startTimer();
     </script>
 
 </body>
