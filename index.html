@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>記憶力大考驗翻牌遊戲</title>
+    <title>我的小遊戲基地 🎮</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -15,134 +16,72 @@
             height: 100vh;
             margin: 0;
         }
-        h1 { color: #333; margin-bottom: 10px; }
-        .score-board { font-size: 18px; margin-bottom: 20px; color: #665; }
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 80px);
-            grid-gap: 10px;
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
-        .card {
-            width: 80px;
-            height: 80px;
-            background-color: #2e7d32;
-            border-radius: 8px;
+        p {
+            color: #e0e0e0;
+            margin-bottom: 40px;
+        }
+        .menu-container {
             display: flex;
-            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
             justify-content: center;
-            font-size: 32px;
-            color: transparent;
-            cursor: pointer;
-            user-select: none;
-            transition: background-color 0.3s, transform 0.1s;
+            max-width: 600px;
         }
-        .card:active { transform: scale(0.95); }
-        .card.flipped {
-            background-color: #ffffff;
-            color: #000;
-            cursor: default;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .menu-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            width: 200px;
+            text-align: center;
+            text-decoration: none;
+            color: #fff;
+            transition: transform 0.3s, background 0.3s;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
         }
-        .card.matched {
-            background-color: #e8f5e9;
-            color: #81c784;
-            cursor: default;
+        .menu-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.2);
         }
-        #restart-btn {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #2196f3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        .game-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
         }
-        #restart-btn:hover { background-color: #1e88e5; }
+        .game-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .game-desc {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
 
-    <h1>記憶力大考驗 🧠</h1>
-    <div class="score-board">點擊次數：<span id="click-count">0</span></div>
-    
-    <div class="game-grid" id="grid"></div>
-    
-    <button id="restart-btn" onclick="initGame()">重新開始</button>
+    <h1>🎮 我的小遊戲基地 🚀</h1>
+    <p>歡迎光臨！請選擇你想挑戰的小遊戲：</p>
 
-    <script>
-        const emojis = ['🍎', '🍎', '🍌', '🍌', '🍓', '🍓', '🍇', '🍇', '🍒', '🍒', '🍉', '🍉', '🍍', '🍍', '🥝', '🥝'];
-        let flippedCards = [];
-        let matchedCount = 0;
-        let clicks = 0;
-        let canFlip = true;
+    <div class="menu-container">
+        <a href="cards.html" class="menu-card">
+            <div class="game-icon">🧠</div>
+            <div class="game-title">記憶力大考驗</div>
+            <div class="game-desc">翻開卡牌，考驗你的瞬間記憶力！</div>
+        </a>
 
-        function initGame() {
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
-            flippedCards = [];
-            matchedCount = 0;
-            clicks = 0;
-            canFlip = true;
-            document.getElementById('click-count').innerText = clicks;
+        <a href="snake.html" class="menu-card">
+            <div class="game-icon">🐍</div>
+            <div class="game-title">經典貪食蛇</div>
+            <div class="game-desc">控制小蛇吃掉食物，挑戰最高分數！</div>
+        </a>
+    </div>
 
-            // 洗牌演算法
-            const shuffled = [...emojis].sort(() => Math.random() - 0.5);
-
-            // 建立卡牌
-            shuffled.forEach((emoji, index) => {
-                const card = document.createElement('div');
-                card.classList.add('card');
-                card.dataset.emoji = emoji;
-                card.dataset.id = index;
-                card.innerText = emoji;
-                card.addEventListener('click', flipCard);
-                grid.appendChild(card);
-            });
-        }
-
-        function flipCard() {
-            if (!canFlip) return;
-            if (this.classList.contains('flipped') || this.classList.contains('matched')) return;
-
-            this.classList.add('flipped');
-            flippedCards.push(this);
-
-            if (flippedCards.length === 2) {
-                clicks++;
-                document.getElementById('click-count').innerText = clicks;
-                checkMatch();
-            }
-        }
-
-        function checkMatch() {
-            canFlip = false;
-            const [card1, card2] = flippedCards;
-
-            if (card1.dataset.emoji === card2.dataset.emoji) {
-                // 配對成功
-                card1.classList.add('matched');
-                card2.classList.add('matched');
-                matchedCount += 2;
-                flippedCards = [];
-                canFlip = true;
-
-                if (matchedCount === emojis.length) {
-                    setTimeout(() => alert(`恭喜通關！你總共點擊了 ${clicks} 次！`), 300);
-                }
-            } else {
-                // 配對失敗，1秒後蓋回去
-                setTimeout(() => {
-                    card1.classList.remove('flipped');
-                    card2.classList.remove('flipped');
-                    flippedCards = [];
-                    canFlip = true;
-                }, 1000);
-            }
-        }
-
-        // 頁面載入時初始化遊戲
-        initGame();
-    </script>
 </body>
 </html>
