@@ -39,7 +39,7 @@
         .dp-black { background: #0077ff; box-shadow: 0 0 5px #0077ff; } 
         .dp-white { background: #fff; box-shadow: 0 0 5px #fff; }       
 
-        /* 新增：新手規則提示面板 */
+        /* 強制顯示：新手規則提示面板 */
         .rule-panel {
             width: 100%;
             max-width: 360px;
@@ -47,9 +47,10 @@
             border: 1px solid #00ffcc;
             border-radius: 8px;
             margin-bottom: 15px;
-            padding: 10px 12px;
+            padding: 12px;
             font-size: 12px;
             color: #ccc;
+            display: block !important; /* 確保面板外框絕對不消失 */
         }
         .rule-title {
             color: #00ffcc;
@@ -58,14 +59,15 @@
             justify-content: space-between;
             cursor: pointer;
             user-select: none;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 5px;
         }
         .rule-content {
-            line-height: 1.5;
-            display: block; /* 預設展開 */
+            line-height: 1.6;
         }
         .rule-content ul { padding-left: 18px; margin: 4px 0; }
-        .rule-content li { margin-bottom: 3px; }
+        .rule-content li { margin-bottom: 5px; }
 
         /* 8x8 棋盤 */
         .board {
@@ -137,6 +139,7 @@
 
     <h1>賽博黑白棋 🔮</h1>
     
+    <!-- 狀態欄 -->
     <div class="status-bar">
         <div id="game-info">🔵 玩家回合</div>
         <div class="score-box">
@@ -145,12 +148,13 @@
         </div>
     </div>
 
+    <!-- 規則說明欄（優化 JavaScript 判斷邏輯） -->
     <div class="rule-panel">
         <div class="rule-title" onclick="toggleRules()">
             <span>📜 如何遊玩（規則說明）</span>
             <span id="rule-arrow">▼ 收合</span>
         </div>
-        <div class="rule-content" id="rule-text">
+        <div class="rule-content" id="rule-text" style="display: block;">
             <ul>
                 <li><b>你是藍棋 🔵</b>，電腦 AI 是白棋 ⚪。</li>
                 <li>點擊棋盤上的<b>「綠色發光點 🟢」</b>即可落子。</li>
@@ -160,6 +164,7 @@
         </div>
     </div>
 
+    <!-- 8x8 棋盤 -->
     <div class="board" id="board"></div>
 
     <div class="controls">
@@ -170,7 +175,7 @@
     <script>
         const BOARD_SIZE = 8;
         let board = [];
-        let turn = 1; // 1 = 玩家(藍), 2 = AI(白)
+        let turn = 1; 
         let gameOver = false;
 
         const directions = [
@@ -179,7 +184,7 @@
             [1,-1],  [1,0],  [1,1]
         ];
 
-        // 切換規則顯示與隱藏
+        // 修正切換邏輯，精準比對 display 狀態
         function toggleRules() {
             const content = document.getElementById('rule-text');
             const arrow = document.getElementById('rule-arrow');
