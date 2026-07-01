@@ -2,9 +2,13 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>經典貪食蛇遊戲 🐍</title>
     <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
         body {
             font-family: Arial, sans-serif;
             background: #222;
@@ -15,25 +19,78 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden; /* 防止手機滑動 */
         }
-        h1 { margin-bottom: 10px; color: #4CAF50; }
-        #score { font-size: 20px; margin-bottom: 20px; }
+        h1 { margin-bottom: 5px; font-size: 20px; color: #4CAF50; }
+        #score { font-size: 16px; margin-bottom: 10px; }
         canvas {
             background: #111;
-            border: 4px solid #4CAF50;
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+            border: 2px solid #4CAF50;
+            width: 90%; /* 手機自適應寬度 */
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
         }
-        .btn {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
+        
+        /* 電腦版控制提示 */
+        .pc-hint {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* 手機虛擬手把 */
+        .controller {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            grid-gap: 5px;
+            margin-top: 15px;
+        }
+        
+        /* 在電腦上隱藏手把 */
+        @media (min-width: 768px) {
+            .controller { display: none; }
+            .pc-hint { display: block; }
+        }
+        
+        /* 在手機上隱藏提示 */
+        @media (max-width: 767px) {
+            .pc-hint { display: none; }
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(76, 175, 80, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #4CAF50;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ctrl-btn:active {
+            background: rgba(76, 175, 80, 0.3);
+            transform: scale(0.95);
+        }
+        /* 按鈕定位 */
+        #up { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #down { grid-column: 2; grid-row: 3; }
+
+        .game-over-btn {
+            position: absolute;
+            bottom: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
             background: #4CAF50;
             color: white;
             border: none;
             cursor: pointer;
             border-radius: 5px;
         }
-        .btn:hover { background: #45a049; }
     </style>
 </head>
 <body>
@@ -41,7 +98,16 @@
     <h1>經典貪食蛇 🐍</h1>
     <div id="score">分數：0</div>
     <canvas id="gameCanvas" width="400" height="400"></canvas>
-    <button class="btn" onclick="resetGame()">重新開始</button>
+    <div class="pc-hint">提示：使用電腦鍵盤方向鍵控制</div>
+
+    <div class="controller">
+        <div id="up" class="ctrl-btn" ontouchstart="handleCtrl('Up')">⬆️</div>
+        <div id="left" class="ctrl-btn" ontouchstart="handleCtrl('Left')">⬅️</div>
+        <div id="right" class="ctrl-btn" ontouchstart="handleCtrl('Right')">➡️</div>
+        <div id="down" class="ctrl-btn" ontouchstart="handleCtrl('Down')">⬇️</div>
+    </div>
+
+    <button class="game-over-btn" onclick="resetGame()">重新開始</button>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -55,7 +121,7 @@
         function resetGame() {
             snake = [{x: 10, y: 10}];
             food = {x: 5, y: 5};
-            dx = 1;
+            dx = 0; // 開始時先不移動
             dy = 0;
             score = 0;
             document.getElementById("score").innerText = "分數：" + score;
@@ -66,16 +132,16 @@
         }
 
         function update() {
-            // 移動蛇頭
+            // 如果 dx, dy 都為 0 (開局)，先不更新
+            if (dx === 0 && dy === 0) return;
+
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
             
-            // 撞牆判定
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
                 gameOver();
                 return;
             }
 
-            // 撞到自己判定
             for (let i = 0; i < snake.length; i++) {
                 if (snake[i].x === head.x && snake[i].y === head.y) {
                     gameOver();
@@ -85,30 +151,26 @@
 
             snake.unshift(head);
 
-            // 吃到食物判定
             if (head.x === food.x && head.y === food.y) {
                 score += 10;
                 document.getElementById("score").innerText = "分數：" + score;
                 generateFood();
             } else {
-                snake.pop(); // 沒吃到食物就把尾巴縮減，維持長度
+                snake.pop();
             }
 
             draw();
         }
 
         function draw() {
-            // 清空畫布
             ctx.fillStyle = "#111";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 畫蛇
             ctx.fillStyle = "#4CAF50";
             snake.forEach(part => {
                 ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
             });
 
-            // 畫食物
             ctx.fillStyle = "#FF5722";
             ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
         }
@@ -117,7 +179,6 @@
             food.x = Math.floor(Math.random() * tileCount);
             food.y = Math.floor(Math.random() * tileCount);
             
-            // 確保食物不會生在蛇身上
             snake.forEach(part => {
                 if (part.x === food.x && part.y === food.y) {
                     generateFood();
@@ -130,15 +191,28 @@
             alert("遊戲結束！你的分數是: " + score);
         }
 
-        // 監聽鍵盤事件（也支援手機滑動，這裡先做鍵盤版方便測試）
-        window.addEventListener("keydown", e => {
-            switch(e.key) {
-                case "ArrowUp":    if (dy === 0) { dx = 0; dy = -1; } break;
-                case "ArrowDown":  if (dy === 0) { dx = 0; dy = 1; } break;
-                case "ArrowLeft":  if (dx === 0) { dx = -1; dy = 0; } break;
-                case "ArrowRight": if (dx === 0) { dx = 1; dy = 0; } break;
+        // 核心：方向切換邏輯 (合併鍵盤與手機)
+        function changeDirection(direction) {
+            switch(direction) {
+                case "Up":    if (dy === 0) { dx = 0; dy = -1; } break;
+                case "Down":  if (dy === 0) { dx = 0; dy = 1; } break;
+                case "Left":  if (dx === 0) { dx = -1; dy = 0; } break;
+                case "Right": if (dx === 0) { dx = 1; dy = 0; } break;
             }
+        }
+
+        // 1. 監聽鍵盤事件
+        window.addEventListener("keydown", e => {
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+                e.preventDefault(); // 防止鍵盤滑動頁面
+            }
+            changeDirection(e.key.replace("Arrow", ""));
         });
+
+        // 2. 監聽手機虛擬按鈕事件
+        function handleCtrl(dir) {
+            changeDirection(dir);
+        }
 
         // 啟動遊戲
         resetGame();
