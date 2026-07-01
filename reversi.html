@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>賽博黑白棋 🔮</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            background: #121214;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 { color: #00ffcc; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
+        
+        /* 狀態提示欄 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 360px;
+            background: #1a1a1f;
+            border: 1px solid #333;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .score-box { display: flex; gap: 15px; font-weight: bold; }
+        .score-item { display: flex; align-items: center; gap: 5px; }
+        .disc-preview { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .dp-black { background: #0077ff; box-shadow: 0 0 5px #0077ff; } /* 玩家改用耀眼藍 */
+        .dp-white { background: #fff; box-shadow: 0 0 5px #fff; }       /* AI 用白色 */
+
+        /* 8x8 棋盤 */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-gap: 2px;
+            width: 100%;
+            max-width: 360px;
+            aspect-ratio: 1 / 1;
+            background: #00ffcc; /* 賽博霓虹邊框線 */
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,255,204,0.2);
+        }
+        .cell {
+            background: #1e1e24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        /* 棋子樣式 */
+        .disc {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+        .disc.black { background: #0077ff; box-shadow: 0 0 8px #0077ff; }
+        .disc.white { background: #fff; box-shadow: 0 0 8px #fff; }
+        
+        /* 動態提示點（告訴玩家可以下這裡） */
+        .hint {
+            width: 10px;
+            height: 10px;
+            background: #00ffcc;
+            border-radius: 50%;
+            opacity: 0.6;
+            box-shadow: 0 0 6px #00ffcc;
+        }
+
+        /* 控制區 */
+        .controls {
+            width: 100%;
+            max-width: 360px;
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #333;
+            color: #fff;
+            transition: all 0.1s;
+        }
+        .btn-reset { background: #ff0077; color: white; }
+        .btn:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+
+    <h1>賽博黑白棋 🔮</h1>
+    
+    <div class="status-bar">
+        <div id="game-info">🔵 玩家回合</div>
+        <div class="score-box">
+            <div class="score-item"><span class="disc-preview dp-black"></span> 玩家: <span id="black-score">2</span></div>
+            <div class="score-item"><span class="disc-preview dp-white"></span> AI: <span id="white-score">2</span></div>
+        </div>
+    </div>
+
+    <!-- 8x8 棋盤 -->
+    <div class="board" id="board"></div>
+
+    <div class="controls">
+        <button class="btn btn-reset" onclick="resetGame()">重新開始</button>
+        <button class="btn" onclick="location.href='index.html'">回大廳</button>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        let board = [];
+        let turn = 1; // 1 = 玩家(藍棋), 2 = AI(白棋)
+        let gameOver = false;
+
+        const directions = [
+            [-1,-1], [-1,0], [-1,1],
+            [0,-1],          [0,1],
+            [1,-1],  [1,0],  [1,1]
+        ];
+
+        function initGame() {
+            // 初始化棋盤資料 (0: 空, 1: 藍棋, 2: 白棋)
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+            
+            // 經典黑白棋初始開局
+            board[3][3] = 2;
+            board[3][4] = 1;
+            board[4][3] = 1;
+            board[4][4] = 2;
+
+            turn = 1;
+            gameOver = false;
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+
+            let blackCount = 0;
+            let whiteCount = 0;
+            let playerHasValidMove = hasValidMoves(1);
+
+            // 計算分數
+            for(let r=0; r<BOARD_SIZE; r++) {
+                for(let c=0; c<BOARD_SIZE; c++) {
+                    if(board[r][c] === 1) blackCount++;
+                    if(board[r][c] === 2) whiteCount++;
+                }
+            }
+            document.getElementById('black-score').innerText = blackCount;
+            document.getElementById('white-score').innerText = whiteCount;
+
+            // 繪製棋盤格子
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+
+                    if (board[r][c] === 1) {
+                        const disc = document.createElement('div');
+                        disc.classList.add('disc', 'black');
+                        cell.appendChild(disc);
+                    } else if (board[r][c] === 2) {
+                        const disc = document.createElement('div');
+                        disc.classList.add('disc', 'white');
+                        cell.appendChild(disc);
+                    } else if (turn === 1 && !gameOver) {
+                        // 如果是玩家回合，且這格可以下，就顯示綠色提示點
+                        if (getFlips(r, c, 1).length > 0) {
+                            const hint = document.createElement('div');
+                            hint.classList.add('hint');
+                            cell.appendChild(hint);
+                            cell.addEventListener('click', () => playerMove(r, c));
+                        }
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+
+            // 狀態邏輯更新
+            if (gameOver) return;
+
+            if (blackCount + whiteCount === 64 || (blackCount === 0 || whiteCount === 0)) {
+                endGame();
+                return;
+            }
+
+            if (turn === 1) {
+                if (!playerHasValidMove) {
+                    if (!hasValidMoves(2)) {
+                        endGame(); // 兩邊都沒得下，結束遊戲
+                    } else {
+                        document.getElementById('game-info').innerText = "⏭️ 玩家無步可下，換AI";
+                        turn = 2;
+                        setTimeout(aiMove, 1000);
+                    }
+                } else {
+                    document.getElementById('game-info').innerText = "🔵 玩家回合";
+                }
+            }
+        }
+
+        // 玩家落子
+        function playerMove(r, c) {
+            if (turn !== 1 || gameOver) return;
+            const flips = getFlips(r, c, 1);
+            if (flips.length === 0) return;
+
+            makeMove(r, c, 1, flips);
+            turn = 2;
+            document.getElementById('game-info').innerText = "⚪ AI 全力思考中...";
+            renderBoard();
+            
+            if (!gameOver) {
+                setTimeout(aiMove, 800);
+            }
+        }
+
+        // 簡易 AI：尋找能吃最多子的地方落子
+        function aiMove() {
+            if (turn !== 2 || gameOver) return;
+
+            if (!hasValidMoves(2)) {
+                if (!hasValidMoves(1)) {
+                    endGame();
+                } else {
+                    document.getElementById('game-info').innerText = "⏭️ AI 無步可下，換玩家";
+                    turn = 1;
+                    renderBoard();
+                }
+                return;
+            }
+
+            let bestMove = null;
+            let maxFlips = -1;
+
+            // 掃描全盤找最優落子點
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === 0) {
+                        let flips = getFlips(r, c, 2);
+                        if (flips.length > maxFlips) {
+                            maxFlips = flips.length;
+                            bestMove = { r, c, flips };
+                        }
+                    }
+                }
+            }
+
+            if (bestMove) {
+                makeMove(bestMove.r, bestMove.c, 2, bestMove.flips);
+            }
+
+            turn = 1;
+            renderBoard();
+        }
+
+        // 執行落子與翻面邏輯
+        function makeMove(r, c, player, flips) {
+            board[r][c] = player;
+            flips.forEach(pos => {
+                board[pos.r][pos.c] = player;
+            });
+        }
+
+        // 判斷某個顏色是否有任何合法步法
+        function hasValidMoves(player) {
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === 0 && getFlips(r, c, player).length > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // 取得落子在 (r, c) 後，所有會被翻面的棋子座標陣列
+        function getFlips(r, c, player) {
+            if (board[r][c] !== 0) return [];
+            let opponent = player === 1 ? 2 : 1;
+            let flips = [];
+
+            // 檢查 8 個方向
+            for (let [dr, dc] of directions) {
+                let nr = r + dr;
+                let nc = c + dc;
+                let potentialFlips = [];
+
+                while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === opponent) {
+                    potentialFlips.push({ r: nr, c: nc });
+                    nr += dr;
+                    nc += dc;
+                }
+
+                // 如果夾擊成功（終點是自己的棋子）
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) {
+                    flips = flips.concat(potentialFlips);
+                }
+            }
+            return flips;
+        }
+
+        function endGame() {
+            gameOver = true;
+            let b = parseInt(document.getElementById('black-score').innerText);
+            let w = parseInt(document.getElementById('white-score').innerText);
+            
+            if (b > w) {
+                document.getElementById('game-info').innerText = "🎉 玩家獲勝！";
+                alert(`恭喜獲勝！ 藍棋 ${b} vs 白棋 ${w}`);
+            } else if (w > b) {
+                document.getElementById('game-info').innerText = "🤖 AI 獲勝！";
+                alert(`輸給AI了！ 藍棋 ${b} vs 白棋 ${w}`);
+            } else {
+                document.getElementById('game-info').innerText = "🤝 平手！";
+                alert(`不分勝負！雙方皆為 ${b} 顆子`);
+            }
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
