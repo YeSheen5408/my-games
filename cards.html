@@ -7,7 +7,7 @@
     <style>
         * {
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent; /* 移除手機點擊陰影 */
+            -webkit-tap-highlight-color: transparent;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,51 +18,38 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden; /* 防止頁面滑動影響遊戲 */
+            overflow: hidden;
         }
-        h1 { color: #333; margin: 0 0 10px 0; font-size: 24px; }
-        .score-board { font-size: 16px; margin-bottom: 15px; color: #665; }
+        h1 { color: #333; margin: 0 0 5px 0; font-size: 24px; }
+        .score-board { font-size: 16px; margin-bottom: 15px; color: #555; }
         .game-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            grid-gap: 8px;
+            grid-gap: 10px;
             width: 90%;
-            max-width: 360px; /* 限制手機上最大寬度 */
+            max-width: 360px;
         }
         .card {
-            aspect-ratio: 1 / 1; /* 確保卡牌一定是正方形 */
-            background-color: #2e7d32;
+            aspect-ratio: 1 / 1;
+            background-color: #2e7d32; /* 蓋著時是綠色 */
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 32px;
-            color: transparent;
             cursor: pointer;
             user-select: none;
-            transition: background-color 0.3s, transform 0.1s;
-            position: relative; /* 給 iOS 修正用 */
-            -webkit-backface-visibility: hidden; /* 修正 iOS 翻轉問題 */
-            backface-visibility: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        /* 移除電腦版的 active 縮放，避免手機點擊錯亂 */
-        @media (min-width: 768px) {
-            .card:active { transform: scale(0.95); }
-        }
-        .card.flipped {
-            background-color: #ffffff;
-            color: #000;
-            cursor: default;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .card.matched {
-            background-color: #e8f5e9;
-            color: #81c784 !important; /* 確保顏色不被覆蓋 */
+        /* 翻開與配對成功的樣式 */
+        .card.flipped, .card.matched {
+            background-color: #ffffff !important;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
             cursor: default;
         }
         #restart-btn {
-            margin-top: 20px;
-            padding: 10px 20px;
+            margin-top: 25px;
+            padding: 12px 24px;
             font-size: 16px;
             background-color: #2196f3;
             color: white;
@@ -70,7 +57,6 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        #restart-btn:hover { background-color: #1e88e5; }
     </style>
 </head>
 <body>
@@ -104,19 +90,19 @@
                 const card = document.createElement('div');
                 card.classList.add('card');
                 card.dataset.emoji = emoji;
-                card.innerText = emoji;
+                // 初始狀態不塞任何文字內容，防 iOS Bug
+                card.innerText = ''; 
                 card.addEventListener('click', flipCard);
                 grid.appendChild(card);
             });
         }
 
-        function flipCard(e) {
-            // 防止手機連點的預防措施
-            if (e.type === 'touchend') e.preventDefault();
-            
+        function flipCard() {
             if (!canFlip) return;
             if (this.classList.contains('flipped') || this.classList.contains('matched')) return;
 
+            // 翻開時，才把文字塞進去
+            this.innerText = this.dataset.emoji;
             this.classList.add('flipped');
             flippedCards.push(this);
 
@@ -143,24 +129,18 @@
                 }
             } else {
                 setTimeout(() => {
+                    // 失敗蓋回去時，把文字拔掉
                     card1.classList.remove('flipped');
                     card2.classList.remove('flipped');
+                    card1.innerText = '';
+                    card2.innerText = '';
                     flippedCards = [];
                     canFlip = true;
                 }, 1000);
             }
         }
 
-        // 頁面載入時初始化遊戲
         initGame();
-        
-        // 額外防止手機滑動導致遊戲體驗變差
-        document.body.addEventListener('touchmove', function(e) {
-            if (e.target.className.indexOf('card') !== -1) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
     </script>
 </body>
 </html>
