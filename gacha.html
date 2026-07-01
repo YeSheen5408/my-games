@@ -18,8 +18,31 @@
             min-height: 100vh;
         }
         h1 { color: #00ffcc; font-size: 24px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
-        .stats { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+        .stats { font-size: 14px; color: #aaa; margin-bottom: 15px; }
         
+        /* 新增：機率與剩餘數量公告欄 */
+        .info-panel {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a1f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .color-ssr { color: #ffcc00; font-weight: bold; }
+        .color-sr { color: #da70d6; font-weight: bold; }
+        .color-r { color: #888; font-weight: bold; }
+
         /* 轉蛋機舞台 */
         .gacha-stage {
             width: 100%;
@@ -112,13 +135,10 @@
             color: #fff;
         }
         
-        /* 稀有度顏色 */
         .ssr { background: linear-gradient(135deg, #ffe600 0%, #ff0055 100%); color: #fff; box-shadow: 0 0 8px #ffcc00; border: 1px solid #fff;}
         .ssr .badge { background: #000; color: #ffcc00; }
-        
         .sr { background: #8a2be2; color: #fff; border: 1px solid #da70d6; }
         .sr .badge { background: #da70d6; }
-        
         .r { background: #333; color: #ccc; border: 1px solid #555; }
         .r .badge { background: #666; }
 
@@ -170,6 +190,21 @@
     <h1>賽博冒險者召喚 💎</h1>
     <div class="stats">總召喚次數：<span id="total-count">0</span> | 已收集：<span id="unique-count">0</span>/9</div>
 
+    <div class="info-panel">
+        <div class="info-row">
+            <span class="color-ssr">★ SSR (機率 1.0%)</span>
+            <span id="ssr-remain">還差 3 個未收集</span>
+        </div>
+        <div class="info-row">
+            <span class="color-sr">★ SR (機率 10.0%)</span>
+            <span id="sr-remain">還差 3 個未收集</span>
+        </div>
+        <div class="info-row">
+            <span class="color-r">★ R (機率 89.0%)</span>
+            <span id="r-remain">還差 3 個未收集</span>
+        </div>
+    </div>
+
     <div class="gacha-stage">
         <div class="effect-layer" id="effect"></div>
         <div class="result-display" id="result-box">
@@ -190,141 +225,4 @@
         <div class="inventory-grid" id="inventory-box"></div>
     </div>
 
-    <script>
-        // 角色資料庫
-        const pool = {
-            SSR: [
-                { name: "𝝠𝝾𝝵 核心", icon: "🤖" },
-                { name: "霓虹刺客", icon: "🥷" },
-                { name: "時空魔導", icon: "🧙‍♀️" }
-            ],
-            SR: [
-                { name: "重裝戰警", icon: "👮‍♂️" },
-                { name: "駭客少女", icon: "👩‍💻" },
-                { name: "異能槍手", icon: "🤠" }
-            ],
-            R: [
-                { name: "街頭混混", icon: "🧑‍🎤" },
-                { name: "無人機", icon: "🛸" },
-                { name: "仿生工兵", icon: "👷‍♂️" }
-            ]
-        };
-
-        // 玩家儲存數據
-        let inventory = JSON.parse(localStorage.getItem('gacha_inv')) || {};
-        let totalDraws = parseInt(localStorage.getItem('gacha_total')) || 0;
-
-        function updateUI() {
-            document.getElementById('total-count').innerText = totalDraws;
-            
-            // 更新倉庫顯示
-            const invBox = document.getElementById('inventory-box');
-            invBox.innerHTML = '';
-            
-            let unique = 0;
-            // 按照稀有度順序渲染倉庫
-            ['SSR', 'SR', 'R'].forEach(rarity => {
-                pool[rarity].forEach(char => {
-                    if (inventory[char.name]) {
-                        unique++;
-                        const item = document.createElement('div');
-                        item.classList.add('inv-item');
-                        // 加上稀有度邊框提示
-                        if(rarity === 'SSR') item.style.border = '1px solid #ffcc00';
-                        if(rarity === 'SR') item.style.border = '1px solid #da70d6';
-                        
-                        item.innerHTML = `
-                            <div style="font-size:20px">${char.icon}</div>
-                            <div style="font-size:10px; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${char.name}</div>
-                            <div class="count">x${inventory[char.name]}</div>
-                        `;
-                        invBox.appendChild(item);
-                    }
-                });
-            });
-            document.getElementById('unique-count').innerText = unique;
-        }
-
-        function draw(times) {
-            const resultBox = document.getElementById('result-box');
-            const effect = document.getElementById('effect');
-            resultBox.innerHTML = ''; // 清空舞台
-            
-            let currentResults = [];
-            let hasSSR = false;
-
-            for (let i = 0; i < times; i++) {
-                let rarity = 'R';
-                let rand = Math.random() * 100;
-
-                // 十連抽最後一抽保底 SR 以上
-                if (times === 10 && i === 9) {
-                    let guaranteeRand = Math.random() * 11; // 1% SSR, 10% SR
-                    if (guaranteeRand <= 1) rarity = 'SSR';
-                    else rarity = 'SR';
-                } else {
-                    // 正常機率：SSR 1%, SR 10%, R 89%
-                    if (rand <= 1) rarity = 'SSR';
-                    else if (rand <= 11) rarity = 'SR';
-                    else rarity = 'R';
-                }
-
-                if (rarity === 'SSR') hasSSR = true;
-
-                // 從對應池子隨機抽一隻
-                const characters = pool[rarity];
-                const picked = characters[Math.floor(Math.random() * characters.length)];
-                
-                currentResults.push({ ...picked, rarity: rarity });
-                
-                // 存入倉庫
-                inventory[picked.name] = (inventory[picked.name] || 0) + 1;
-                totalDraws++;
-            }
-
-            // 儲存至本地瀏覽器
-            localStorage.setItem('gacha_inv', JSON.stringify(inventory));
-            localStorage.setItem('gacha_total', totalDraws);
-
-            // 觸發動畫特效
-            if (hasSSR) {
-                effect.classList.add('flash-ssr');
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // 手機震動
-                setTimeout(() => effect.classList.remove('flash-ssr'), 800);
-            } else {
-                effect.style.opacity = '1';
-                setTimeout(() => effect.style.opacity = '0', 150);
-            }
-
-            // 將卡片渲染到舞台上
-            currentResults.forEach((char, index) => {
-                setTimeout(() => {
-                    const cardDiv = document.createElement('div');
-                    cardDiv.classList.add('card', char.rarity.toLowerCase());
-                    cardDiv.innerHTML = `
-                        <span class="badge">${char.rarity}</span>
-                        <span class="avatar">${char.icon}</span>
-                        <span style="font-size:10px; scale:0.9;">${char.name}</span>
-                    `;
-                    resultBox.appendChild(cardDiv);
-                }, index * (times === 10 ? 80 : 0)); // 十連抽會有一個接一個跳出的帥氣感
-            });
-
-            setTimeout(updateUI, times * 80);
-        }
-
-        function clearInventory() {
-            if(confirm("確定要重置所有抽卡數據嗎？")) {
-                inventory = {};
-                totalDraws = 0;
-                localStorage.clear();
-                document.getElementById('result-box').innerHTML = '<p id="placeholder-text" style="color: #666; font-size: 14px;">數據已重置</p>';
-                updateUI();
-            }
-        }
-
-        // 初始化
-        updateUI();
-    </script>
-</body>
-</html>
+    <script
