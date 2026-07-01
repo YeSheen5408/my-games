@@ -19,71 +19,22 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden; /* 防止手機滑動 */
+            overflow: hidden;
         }
-        h1 { margin-bottom: 5px; font-size: 20px; color: #4CAF50; }
-        #score { font-size: 16px; margin-bottom: 10px; }
-        canvas {
-            background: #111;
-            border: 2px solid #4CAF50;
-            width: 90%; /* 手機自適應寬度 */
-            max-width: 400px;
-            aspect-ratio: 1 / 1;
-        }
+        h1 { margin: 0 0 5px 0; font-size: 20px; color: #4CAF50; }
         
-        /* 電腦版控制提示 */
-        .pc-hint {
-            margin-top: 10px;
-            font-size: 12px;
-            color: #888;
-        }
-
-        /* 手機虛擬手把 */
-        .controller {
-            display: grid;
-            grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(3, 60px);
-            grid-gap: 5px;
-            margin-top: 15px;
-        }
-        
-        /* 在電腦上隱藏手把 */
-        @media (min-width: 768px) {
-            .controller { display: none; }
-            .pc-hint { display: block; }
-        }
-        
-        /* 在手機上隱藏提示 */
-        @media (max-width: 767px) {
-            .pc-hint { display: none; }
-        }
-
-        .ctrl-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(76, 175, 80, 0.5);
-            border-radius: 50%;
+        /* 頂部控制列（分數與重新開始並排） */
+        .top-bar {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: #4CAF50;
-            cursor: pointer;
-            user-select: none;
+            width: 90%;
+            max-width: 400px;
+            margin-bottom: 10px;
         }
-        .ctrl-btn:active {
-            background: rgba(76, 175, 80, 0.3);
-            transform: scale(0.95);
-        }
-        /* 按鈕定位 */
-        #up { grid-column: 2; grid-row: 1; }
-        #left { grid-column: 1; grid-row: 2; }
-        #right { grid-column: 3; grid-row: 2; }
-        #down { grid-column: 2; grid-row: 3; }
-
+        #score { font-size: 16px; }
         .game-over-btn {
-            position: absolute;
-            bottom: 20px;
-            padding: 8px 16px;
+            padding: 6px 14px;
             font-size: 14px;
             background: #4CAF50;
             color: white;
@@ -91,12 +42,64 @@
             cursor: pointer;
             border-radius: 5px;
         }
+
+        canvas {
+            background: #111;
+            border: 2px solid #4CAF50;
+            width: 90%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
+        }
+        
+        .pc-hint { margin-top: 10px; font-size: 12px; color: #888; }
+
+        /* 手機虛擬手把（放在最底下，有充裕空間） */
+        .controller {
+            display: grid;
+            grid-template-columns: repeat(3, 55px);
+            grid-template-rows: repeat(3, 55px);
+            grid-gap: 8px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        @media (min-width: 768px) {
+            .controller { display: none; }
+            .pc-hint { display: block; }
+        }
+        @media (max-width: 767px) {
+            .pc-hint { display: none; }
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(76, 175, 80, 0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #4CAF50;
+            user-select: none;
+        }
+        .ctrl-btn:active {
+            background: rgba(76, 175, 80, 0.4);
+        }
+        #up { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #down { grid-column: 2; grid-row: 3; }
     </style>
 </head>
 <body>
 
     <h1>經典貪食蛇 🐍</h1>
-    <div id="score">分數：0</div>
+    
+    <div class="top-bar">
+        <div id="score">分數：0</div>
+        <button class="game-over-btn" onclick="resetGame()">重新開始</button>
+    </div>
+
     <canvas id="gameCanvas" width="400" height="400"></canvas>
     <div class="pc-hint">提示：使用電腦鍵盤方向鍵控制</div>
 
@@ -107,12 +110,9 @@
         <div id="down" class="ctrl-btn" ontouchstart="handleCtrl('Down')">⬇️</div>
     </div>
 
-    <button class="game-over-btn" onclick="resetGame()">重新開始</button>
-
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-
         const gridSize = 20;
         const tileCount = canvas.width / gridSize;
 
@@ -121,18 +121,17 @@
         function resetGame() {
             snake = [{x: 10, y: 10}];
             food = {x: 5, y: 5};
-            dx = 0; // 開始時先不移動
+            dx = 0;
             dy = 0;
             score = 0;
             document.getElementById("score").innerText = "分數：" + score;
             
             clearInterval(gameInterval);
-            gameInterval = setInterval(update, 100);
+            gameInterval = setInterval(update, 120); // 稍微調慢一點點(120ms)，手機操作手感會更好
             generateFood();
         }
 
         function update() {
-            // 如果 dx, dy 都為 0 (開局)，先不更新
             if (dx === 0 && dy === 0) return;
 
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
@@ -189,9 +188,9 @@
         function gameOver() {
             clearInterval(gameInterval);
             alert("遊戲結束！你的分數是: " + score);
+            resetGame(); // 彈出視窗點確認後自動重置，手感更好
         }
 
-        // 核心：方向切換邏輯 (合併鍵盤與手機)
         function changeDirection(direction) {
             switch(direction) {
                 case "Up":    if (dy === 0) { dx = 0; dy = -1; } break;
@@ -201,20 +200,17 @@
             }
         }
 
-        // 1. 監聽鍵盤事件
         window.addEventListener("keydown", e => {
             if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-                e.preventDefault(); // 防止鍵盤滑動頁面
+                e.preventDefault();
             }
             changeDirection(e.key.replace("Arrow", ""));
         });
 
-        // 2. 監聽手機虛擬按鈕事件
         function handleCtrl(dir) {
             changeDirection(dir);
         }
 
-        // 啟動遊戲
         resetGame();
     </script>
 </body>
