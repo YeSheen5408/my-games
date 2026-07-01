@@ -82,7 +82,7 @@
             border: none;
         }
 
-        /* 💡 右上角全域開發者懸浮重整球 - 升級觀測儀樣式 */
+        /* 全域開發者懸浮重整球 */
         .dev-floater {
             position: fixed;
             top: 15px;
@@ -165,7 +165,7 @@
 
         <div onclick="openGame('mines.html')" class="menu-card">
             <div class="game-icon">💣</div>
-            <div class="menu-card game-title">經典踩地雷</div>
+            <div class="game-title">經典踩地雷</div>
             <div class="game-desc">考驗邏輯與運氣，用智慧找出所有地雷！</div>
         </div>
 
@@ -192,6 +192,12 @@
             <div class="game-title">經典卡牌：21點對決</div>
             <div class="game-desc">考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！</div>
         </div>
+
+        <div onclick="openGame('space.html')" class="menu-card">
+            <div class="game-icon">🚀</div>
+            <div class="game-title">極簡彈幕：科幻星戰</div>
+            <div class="game-desc">雷射連發、迎戰外星艦隊！體驗掌上流暢無阻的星際彈幕大戰。</div>
+        </div>
     </div>
 
     <div class="game-stage-container" id="gameStage">
@@ -203,15 +209,12 @@
         let timerInterval = null;
         let currentUrl = "";
         
-        // 從 sessionStorage 讀取刷新次數，保證在大廳與遊戲切換時，次數不會被歸零
         let refreshCount = parseInt(sessionStorage.getItem('global_refresh_count')) || 0;
 
-        // 更新刷新次數的 UI
         function updateCountUI() {
             document.getElementById('refreshCount').innerText = refreshCount;
         }
 
-        // 啟動 60 秒循環計時器
         function startTimer() {
             clearInterval(timerInterval);
             countdown = 60;
@@ -222,12 +225,11 @@
                 document.getElementById('devTimer').innerText = countdown;
                 
                 if (countdown <= 0) {
-                    autoRefreshGame(); // 時間到，觸發自動重整
+                    autoRefreshGame(); 
                 }
             }, 1000);
         }
 
-        // 1. 打開遊戲舞台
         function openGame(url) {
             currentUrl = url;
             const stage = document.getElementById('gameStage');
@@ -241,7 +243,6 @@
             startTimer(); 
         }
 
-        // 2. 核心功能：時間到的「自動重整」，次數會自動加 1 
         function autoRefreshGame() {
             refreshCount++;
             sessionStorage.setItem('global_refresh_count', refreshCount);
@@ -250,7 +251,6 @@
             const iframe = document.getElementById('gameFrame');
             if (currentUrl && document.getElementById('gameStage').style.display === "block") {
                 iframe.src = currentUrl + "?t=" + new Date().getTime();
-                console.log(`[自動觀測] 1分鐘到！已自動為遊戲 ${currentUrl} 刷去快取。目前總計: ${refreshCount} 次`);
             } else {
                 location.href = "index.html?t=" + new Date().getTime();
             }
@@ -258,12 +258,10 @@
             document.getElementById('devTimer').innerText = countdown;
         }
 
-        // 3. 玩家手動點擊「手動破快取」按鈕（手動點擊不計入自動等待次數）
         function manualRefresh() {
             const iframe = document.getElementById('gameFrame');
             if (currentUrl && document.getElementById('gameStage').style.display === "block") {
                 iframe.src = currentUrl + "?t=" + new Date().getTime();
-                console.log(`[手動觸發] 已對 ${currentUrl} 進行即時強制去快取`);
             } else {
                 location.href = "index.html?t=" + new Date().getTime();
             }
@@ -271,7 +269,7 @@
             document.getElementById('devTimer').innerText = countdown;
         }
 
-        // 4. 關閉遊戲舞台回大廳
+        // 🚪 關閉遊戲回大廳（此處已完美實裝「次數歸零」）
         function closeGame() {
             const stage = document.getElementById('gameStage');
             const iframe = document.getElementById('gameFrame');
@@ -281,13 +279,17 @@
             stage.style.display = "none";
             closeBtn.style.display = "none"; 
             currentUrl = "";
+
+            // 💡 歸零核心程式碼：清除快取紀錄
+            refreshCount = 0;
+            sessionStorage.setItem('global_refresh_count', refreshCount);
+            updateCountUI();
+
             startTimer(); 
         }
 
-        // 初始化
         updateCountUI();
         startTimer();
     </script>
-
 </body>
 </html>
