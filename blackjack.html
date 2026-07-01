@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>經典卡牌：21點對決 🃏</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            background: #0f3017; /* 經典賭場綠色底盤 */
+            color: #fff;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 { color: #ffe600; font-size: 24px; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        
+        /* 籌碼與資產顯示欄 */
+        .dashboard {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border: 1px solid #27ae60;
+        }
+        .money-text { color: #2ecc71; }
+        .bet-text { color: #f1c40f; }
+
+        /* 牌局對戰主舞台 */
+        .play-area {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px dashed rgba(255,255,255,0.2);
+        }
+        .section-label { font-size: 12px; color: #bdc3c7; font-weight: bold; margin-bottom: 5px; }
+        
+        /* 手牌展示排 */
+        .card-row { display: flex; gap: 8px; min-height: 85px; flex-wrap: wrap; }
+        
+        /* 單張撲克牌樣式 */
+        .card {
+            width: 55px;
+            height: 80px;
+            background: #fff;
+            border-radius: 6px;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            position: relative;
+            user-select: none;
+        }
+        .card.red { color: #e74c3c; }
+        .card.back {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            color: transparent;
+            border: 2px solid #fff;
+        }
+        .card-suit-center { font-size: 20px; align-self: center; }
+
+        /* 中央大提示訊息 */
+        .msg-box {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            min-height: 27px;
+            margin: 10px 0;
+            text-shadow: 0 2px 4px #000;
+        }
+
+        /* 按鈕控制控制區 */
+        .control-grid {
+            width: 100%;
+            max-width: 400px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn {
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            transition: background 0.1s;
+        }
+        .btn-bet { background: #f1c40f; color: #000; grid-column: span 2; }
+        .btn-hit { background: #2980b9; }
+        .btn-stand { background: #e67e22; }
+        .btn:disabled { background: #7f8c8d; color: #bdc3c7; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h1>經典卡牌：21點對決 🃏</h1>
+
+    <div class="dashboard">
+        <div>💰 總資產: <span class="money-text" id="total-money">1000</span></div>
+        <div>🔥 當前下注: <span class="bet-text" id="current-bet">0</span></div>
+    </div>
+
+    <div class="play-area">
+        <div>
+            <div class="section-label">🤖 莊家 AI (點數: <span id="dealer-score">?</span>)</div>
+            <div class="card-row" id="dealer-cards"></div>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed rgba(255,255,255,0.1); width:100%;">
+        <div>
+            <div class="section-label">👤 你的手牌 (點數: <span id="player-score">0</span>)</div>
+            <div class="card-row" id="player-cards"></div>
+        </div>
+    </div>
+
+    <div class="msg-box" id="msg-text">請下注開始遊戲！</div>
+
+    <div class="control-grid">
+        <button class="btn btn-bet" id="btn-bet-100" onclick="placeBet(100)">🪙 下注 100 籌碼並開局</button>
+        <button class="btn btn-hit" id="btn-hit" onclick="playerHit()" disabled>🃏 要牌 (Hit)</button>
+        <button class="btn btn-stand" id="btn-stand" onclick="playerStand()" disabled>🛑 停牌 (Stand)</button>
+    </div>
+
+    <button class="btn" style="background:#333; width:100%; max-width:400px; margin-top:20px;" onclick="if(window.parent && window.parent.closeGame){window.parent.closeGame()}else{location.href='index.html'}">回大廳</button>
+
+    <script>
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let totalMoney = 1000;
+        let currentBet = 0;
+        let gameStage = "betting"; // betting, playing, ended
+
+        const suits = [
+            { symbol: '♠', name: 'spades', isRed: false },
+            { symbol: '♥', name: 'hearts', isRed: true },
+            { symbol: '♦', name: 'diamonds', isRed: true },
+            { symbol: '♣', name: 'clubs', isRed: false }
+        ];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        // 1. 初始化牌組並洗牌
+        function createDeck() {
+            deck = [];
+            for (let suit of suits) {
+                for (let val of values) {
+                    deck.push({ suit, value: val });
+                }
+            }
+            // 隨機洗牌
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        // 2. 下注並發第一波牌
+        function placeBet(amount) {
+            if (totalMoney < amount) {
+                alert("籌碼不足！已自動為你補充 500 緊急金。");
+                totalMoney += 500;
+                updateUI();
+                return;
+            }
+
+            totalMoney -= amount;
+            currentBet = amount;
+            gameStage = "playing";
+
+            createDeck();
+            playerHand = [deck.pop(), deck.pop()];
+            dealerHand = [deck.pop(), deck.pop()];
+
+            document.getElementById('msg-text').innerText = "牌局進行中，請選擇要牌或停牌...";
+            
+            // 檢查玩家是否起手 21 點 (Blackjack)
+            if (calculateScore(playerHand) === 21) {
+                playerStand(); // 直接強迫結算
+                return;
+            }
+
+            updateUI();
+        }
+
+        // 3. 玩家要牌 (Hit)
+        function playerHit() {
+            if (gameStage !== "playing") return;
+            playerHand.push(deck.pop());
+            
+            let score = calculateScore(playerHand);
+            if (score > 21) {
+                // 爆牌直接輸
+                endGame("玩家爆牌！莊家獲勝！", "lose");
+            } else {
+                updateUI();
+            }
+        }
+
+        // 4. 玩家停牌 (Stand) -> 換莊家補牌
+        function playerStand() {
+            if (gameStage !== "playing") return;
+            gameStage = "dealer_turn";
+            updateUI();
+
+            // 莊家 AI 邏輯：小於 17 點必須強迫補牌
+            let dealerTimer = setInterval(() => {
+                let dealerScore = calculateScore(dealerHand);
+                if (dealerScore < 17) {
+                    dealerHand.push(deck.pop());
+                    renderHands();
+                } else {
+                    clearInterval(dealerTimer);
+                    settleMatch();
+                }
+            }, 600);
+        }
+
+        // 5. 兩方點數終極大結算
+        function settleMatch() {
+            let pScore = calculateScore(playerHand);
+            let dScore = calculateScore(dealerHand);
+
+            if (dScore > 21) {
+                endGame("莊家爆牌！恭喜你贏得籌碼！", "win");
+            } else if (pScore > dScore) {
+                endGame(`你以 ${pScore} 點擊敗莊家 ${dScore} 點！`, "win");
+            } else if (dScore > pScore) {
+                endGame(`莊家以 ${dScore} 點擊敗你的 ${pScore} 點！`, "lose");
+            } else {
+                endGame("不分勝負！雙方點數平手！", "push");
+            }
+        }
+
+        // 6. 局末處理
+        function endGame(msg, result) {
+            gameStage = "ended";
+            if (result === "win") {
+                // 贏了拿回雙倍下注
+                totalMoney += currentBet * 2;
+            } else if (result === "push") {
+                // 平手退還本金
+                totalMoney += currentBet;
+            }
+            currentBet = 0;
+            document.getElementById('msg-text').innerText = msg;
+            updateUI();
+        }
+
+        // 🧮 計算點數核心公式 (自動將 A 優化判定為 1 或 11)
+        function calculateScore(hand) {
+            let score = 0;
+            let aceCount = 0;
+
+            for (let card of hand) {
+                if (card.value === 'A') {
+                    aceCount++;
+                    score += 11;
+                } else if (['J', 'Q', 'K'].includes(card.value)) {
+                    score += 10;
+                } else {
+                    score += parseInt(card.value);
+                }
+            }
+
+            // 如果總分超過 21 且手上有 A，將 A 降格視為 1 點
+            while (score > 21 && aceCount > 0) {
+                score -= 10;
+                aceCount--;
+            }
+            return score;
+        }
+
+        // 渲染卡牌畫面
+        function renderHands() {
+            const pRow = document.getElementById('player-cards');
+            const dRow = document.getElementById('dealer-cards');
+            pRow.innerHTML = '';
+            dRow.innerHTML = '';
+
+            // 渲染玩家牌
+            playerHand.forEach(card => pRow.appendChild(createCardEl(card, false)));
+            
+            // 渲染莊家牌（如果遊戲還在進行，隱藏莊家第二張暗牌）
+            dealerHand.forEach((card, idx) => {
+                if (idx === 1 && gameStage === "playing") {
+                    dRow.appendChild(createCardEl(card, true)); // 蓋牌
+                } else {
+                    dRow.appendChild(createCardEl(card, false));
+                }
+            });
+
+            // 更新分數板數字
+            document.getElementById('player-score').innerText = calculateScore(playerHand);
+            if (gameStage === "playing") {
+                // 進行中只透露莊家第一張公開牌的分數
+                let firstCardScore = dealerHand[0].value === 'A' ? 11 : (['J','Q','K'].includes(dealerHand[0].value) ? 10 : parseInt(dealerHand[0].value));
+                document.getElementById('dealer-score').innerText = firstCardScore + " + ?";
+            } else {
+                document.getElementById('dealer-score').innerText = calculateScore(dealerHand);
+            }
+        }
+
+        // 生成單張撲克牌 HTML 元素
+        function createCardEl(card, isBack) {
+            const div = document.createElement('div');
+            div.classList.add('card');
+            if (isBack) {
+                div.classList.add('back');
+                return div;
+            }
+            if (card.suit.isRed) div.classList.add('red');
+
+            div.innerHTML = `
+                <div>${card.value}</div>
+                <div class="card-suit-center">${card.suit.symbol}</div>
+                <div style="transform: rotate(180deg); align-self: flex-end;">${card.value}</div>
+            `;
+            return div;
+        }
+
+        // 更新 UI 元件狀態
+        function updateUI() {
+            document.getElementById('total-money').innerText = totalMoney;
+            document.getElementById('current-bet').innerText = currentBet;
+
+            renderHands();
+
+            // 按鈕開關管控
+            const isPlaying = (gameStage === "playing");
+            document.getElementById('btn-bet-100').disabled = isPlaying || gameStage === "dealer_turn";
+            document.getElementById('btn-hit').disabled = !isPlaying;
+            document.getElementById('btn-stand').disabled = !isPlaying;
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
