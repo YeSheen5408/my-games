@@ -27,7 +27,7 @@
             margin-bottom: 25px;
         }
 
-        /* ⚙️ 大廳分類與排序控制台 */
+        /* 大廳分類與排序控制台 */
         .control-panel {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 30px;
@@ -195,7 +195,7 @@
     </div>
 
     <script>
-        // 母體遊戲清單（新增守衛戰與粒子割草）
+        // 母體遊戲清單（已完美補上火柴人跑酷 runner）
         const originalGames = [
             { id: "cards", url: "cards.html", icon: "🧠", title: "記憶力大考驗", desc: "翻開卡牌，考驗你的瞬間記憶力！" },
             { id: "snake", url: "snake.html", icon: "🐍", title: "經典貪食蛇", desc: "控制小蛇吃掉食物，挑戰最高分數！" },
@@ -207,7 +207,8 @@
             { id: "blackjack", url: "blackjack.html", icon: "🃏", title: "經典卡牌：21點對決", desc: "考驗膽識與算牌策略，與 AI 莊家展開驚心動魄的撲克對決！" },
             { id: "space", url: "space.html", icon: "🚀", title: "極簡彈幕：科幻星戰", desc: "雷射連發！體驗掌上流暢無阻的星際彈幕大戰。" },
             { id: "tower", url: "tower.html", icon: "🏹", title: "極簡策略：王國守衛戰", desc: "佈置箭塔、冰霜塔與火砲，抵禦一波波進犯的像素怪物群！" },
-            { id: "mower", url: "mower.html", icon: "🔮", title: "爽快解壓：霓虹粒子割草", desc: "瘋狂吸取經驗值！體驗全螢幕環狀雷射橫飛的終極割草爽感。" }
+            { id: "mower", url: "mower.html", icon: "🔮", title: "爽快解壓：霓虹粒子割草", desc: "瘋狂吸取經驗值！體驗全螢幕環狀雷射橫飛的終極割草爽感。" },
+            { id: "runner", url: "runner.html", icon: "🏃‍♂️", title: "極簡跑酷：賽博奔跑者", desc: "輕盈跳躍、空中兩段翻滾！挑戰極速霓虹障礙物與生涯最高分。" }
         ];
 
         let currentSort = localStorage.getItem('lobby_sort_mode') || 'classic';
@@ -282,7 +283,6 @@
             renderLobby();
         }
 
-        // 計時模組
         function updateCountUI() { document.getElementById('refreshCount').innerText = refreshCount; }
         function startTimer() {
             clearInterval(timerInterval); countdown = 60; document.getElementById('devTimer').innerText = countdown;
