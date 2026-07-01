@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>經典踩地雷 💣</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #222;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 { margin: 0 0 5px 0; font-size: 22px; color: #ffcc00; }
+        
+        /* 上方資訊欄 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 340px;
+            margin-bottom: 15px;
+            background: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* 遊戲棋盤格 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-gap: 4px;
+            width: 100%;
+            max-width: 340px;
+            aspect-ratio: 1 / 1;
+            background: #444;
+            padding: 6px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+        .cell {
+            background: #666;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: inset 2px 2px 0px rgba(255,255,255,0.2), inset -2px -2px 0px rgba(0,0,0,0.2);
+        }
+        /* 點開後的樣式 */
+        .cell.revealed {
+            background: #bbb;
+            color: #000;
+            box-shadow: none;
+            cursor: default;
+        }
+        .cell.mine { background: #d32f2f; }
+        .cell.flag { background: #555; }
+
+        /* 數字顏色 */
+        .n-1 { color: #1976d2; }
+        .n-2 { color: #388e3c; }
+        .n-3 { color: #d32f2f; }
+        .n-4 { color: #7b1fa2; }
+        .n-5 { color: #ff5722; }
+        
+        /* 手機專用操作工具列 */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 340px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            color: white;
+        }
+        .btn-mode { background: #2196f3; box-shadow: 0 4px #0b7dda; }
+        .btn-mode.active-flag { background: #ff9800; box-shadow: 0 4px #e65100; }
+        .btn-mode:active { transform: translateY(2px); box-shadow: none; }
+        .btn-reset { background: #4caf50; }
+    </style>
+</head>
+<body>
+
+    <h1>經典踩地雷 💣</h1>
+    
+    <div class="status-bar">
+        <div>剩餘地雷：<span id="mine-count">10</span></div>
+        <div id="game-status">😊 遊戲中</div>
+    </div>
+
+    <div class="grid" id="field"></div>
+
+    <div class="controls">
+        <button class="btn btn-mode" id="mode-btn" onclick="toggleMode()">⛏️ 挖土模式</button>
+        <button class="btn btn-reset" onclick="initGame()">重新開始</button>
+    </div>
+
+    <script>
+        const size = 9;
+        const mineCount = 10;
+        let cells = [];
+        let isFlagMode = false; // 手機端的特殊插旗模式切換
+        let gameOver = false;
+        let totalRevealed = 0;
+
+        function initGame() {
+            const field = document.getElementById('field');
+            field.innerHTML = '';
+            cells = [];
+            gameOver = false;
+            totalRevealed = 0;
+            isFlagMode = false;
+            document.getElementById('game-status').innerText = "😊 遊戲中";
+            document.getElementById('mine-count').innerText = mineCount;
+            document.getElementById('mode-btn').innerText = "⛏️ 挖土模式";
+            document.getElementById('mode-btn').className = "btn btn-mode";
+
+            // 1. 建立 9x9 空格子物件
+            for (let r = 0; r < size; r++) {
+                cells[r] = [];
+                for (let c = 0; c < size; c++) {
+                    cells[r][c] = {
+                        row: r, col: c, isMine: false, isRevealed: false, isFlagged: false, neighborMines: 0, element: null
+                    };
+                }
+            }
+
+            // 2. 隨機埋 10 顆雷
+            let placedMines = 0;
+            while (placedMines < mineCount) {
+                let r = Math.floor(Math.random() * size);
+                let c = Math.floor(Math.random() * size);
+                if (!cells[r][c].isMine) {
+                    cells[r][c].isMine = true;
+                    placedMines++;
+                }
+            }
+
+            // 3. 計算每個格子周圍有幾顆雷
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (cells[r][c].isMine) continue;
+                    let count = 0;
+                    // 檢查周圍 8 個方位
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (r+dr >= 0 && r+dr < size && c+dc >= 0 && c+dc < size) {
+                                if (cells[r+dr][c+dc].isMine) count++;
+                            }
+                        }
+                    }
+                    cells[r][c].neighborMines = count;
+                }
+            }
+
+            // 4. 渲染到畫面上
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const div = document.createElement('div');
+                    div.classList.add('cell');
+                    div.addEventListener('click', () => handleCellClick(r, c));
+                    // 電腦版也保留滑鼠右鍵直接插旗的功能
+                    div.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        cellFlag(r, c);
+                    });
+                    cells[r][c].element = div;
+                    field.appendChild(div);
+                }
+            }
+        }
+
+        // 切換手機操作模式
+        function toggleMode() {
+            if (gameOver) return;
+            isFlagMode = !isFlagMode;
+            const btn = document.getElementById('mode-btn');
+            if (isFlagMode) {
+                btn.innerText = "🚩 插旗模式";
+                btn.classList.add('active-flag');
+            } else {
+                btn.innerText = "⛏️ 挖土模式";
+                btn.classList.remove('active-flag');
+            }
+        }
+
+        function handleCellClick(r, c) {
+            if (gameOver) return;
+            // 如果是插旗模式，則走插旗邏輯
+            if (isFlagMode) {
+                cellFlag(r, c);
+            } else {
+                cellReveal(r, c);
+            }
+        }
+
+        // 翻開格子
+        function cellReveal(r, c) {
+            let cell = cells[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            cell.isRevealed = true;
+            cell.element.classList.add('revealed');
+            totalRevealed++;
+
+            // 踩到雷了！
+            if (cell.isMine) {
+                cell.element.innerText = '💣';
+                cell.element.classList.add('mine');
+                endGame(false);
+                return;
+            }
+
+            // 顯示數字
+            if (cell.neighborMines > 0) {
+                cell.element.innerText = cell.neighborMines;
+                cell.element.classList.add('n-' + cell.neighborMines);
+            } else {
+                // 如果是 0，連鎖翻開周圍格子
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (r+dr >= 0 && r+dr < size && c+dc >= 0 && c+dc < size) {
+                            cellReveal(r+dr, c+dc);
+                        }
+                    }
+                }
+            }
+
+            // 檢查勝利：所有非地雷格子都被翻開
+            if (totalRevealed === (size * size) - mineCount) {
+                endGame(true);
+            }
+        }
+
+        // 插旗子
+        function cellFlag(r, c) {
+            let cell = cells[r][c];
+            if (cell.isRevealed) return;
+
+            cell.isFlagged = !cell.isFlagged;
+            const currentMineText = document.getElementById('mine-count');
+            let currentMines = parseInt(currentMineText.innerText);
+
+            if (cell.isFlagged) {
+                cell.element.innerText = '🚩';
+                cell.element.classList.add('flag');
+                currentMineText.innerText = currentMines - 1;
+            } else {
+                cell.element.innerText = '';
+                cell.element.classList.remove('flag');
+                currentMineText.innerText = currentMines + 1;
+            }
+        }
+
+        function endGame(isWin) {
+            gameOver = true;
+            if (isWin) {
+                document.getElementById('game-status').innerText = "😎 你贏了！";
+                alert("太厲害了！你成功拆除了所有地雷！ 🎉");
+            } else {
+                document.getElementById('game-status').innerText = "💥 爆炸啦！";
+                // 顯示所有地雷的位置給玩家看
+                for (let r = 0; r < size; r++) {
+                    for (let c = 0; c < size; c++) {
+                        if (cells[r][c].isMine) {
+                            cells[r][c].element.innerText = '💣';
+                            if (!cells[r][c].isRevealed) cells[r][c].element.style.background = '#883333';
+                        }
+                    }
+                }
+                alert("蹦！踩到地雷了，再接再厲！ 💣");
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
