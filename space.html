@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極簡彈幕：科幻星戰 🚀</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0;
+            padding: 0;
+            background: #050508;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* 頂部計分板 */
+        .hud {
+            width: 100%;
+            max-width: 360px;
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid #222;
+        }
+        .score-val { color: #00ffcc; }
+        .hi-val { color: #ffe600; }
+
+        /* 遊戲畫布 */
+        canvas {
+            background: radial-gradient(circle at center, #0b0b16 0%, #030306 100%);
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+            display: block;
+        }
+
+        /* 底部操作提示與回大廳 */
+        .controls-info {
+            font-size: 11px;
+            color: #666;
+            margin: 8px 0;
+            text-align: center;
+        }
+        .btn-lobby {
+            width: 90%;
+            max-width: 360px;
+            padding: 10px;
+            background: #222;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="hud">
+        <div>分數: <span class="score-val" id="score-text">0</span></div>
+        <div>生命: <span style="color:#ff0055;" id="lives-text">♥♥♥</span></div>
+        <div>最高紀錄: <span class="hi-val" id="high-text">0</span></div>
+    </div>
+
+    <canvas id="gameCanvas" width="360" height="500"></canvas>
+
+    <div class="controls-info">📱 手指按住畫布左右滑動即可控制戰機移動（自動開火）</div>
+
+    <button class="btn-lobby" onclick="if(window.parent && window.parent.closeGame){window.parent.closeGame()}else{location.href='index.html'}">🚪 回大廳</button>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 遊戲狀態變數
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('space_highscore')) || 0;
+        let lives = 3;
+        let gameOver = false;
+
+        // 1. 玩家戰機物件
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 40,
+            w: 26,
+            h: 22,
+            speed: 6
+        };
+
+        let bullets = [];      // 玩家子彈陣列
+        let enemies = [];      // 敵機陣列
+        let particles = [];    // 爆炸粒子陣列
+        let enemySpawnTimer = 0;
+        let lastShotTime = 0;
+
+        // 💾 讀取最高紀錄紀錄UI
+        document.getElementById('high-text').innerText = highScore;
+
+        // 📱 綁定手機觸控事件（單手左右拖曳）
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (gameOver) return;
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            // 計算觸控點在 Canvas 內部的相對 X 座標
+            let relativeX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            
+            // 限制戰機不要飛出左右邊界
+            if (relativeX < player.w / 2) relativeX = player.w / 2;
+            if (relativeX > canvas.width - player.w / 2) relativeX = canvas.width - player.w / 2;
+            
+            player.x = relativeX;
+        }, { passive: false });
+
+        // 💻 同時支援電腦滑鼠左右移動控制
+        canvas.addEventListener('mousemove', (e) => {
+            if (gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            let mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            if (mouseX < player.w / 2) mouseX = player.w / 2;
+            if (mouseX > canvas.width - player.w / 2) mouseX = canvas.width - player.w / 2;
+            player.x = mouseX;
+        });
+
+        // 點擊畫面任意處在結束時可重啟遊戲
+        canvas.addEventListener('click', () => { if (gameOver) restartGame(); });
+        canvas.addEventListener('touchstart', () => { if (gameOver) restartGame(); });
+
+        // 💥 觸發爆炸粒子特效
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    radius: Math.random() * 3 + 1,
+                    alpha: 1,
+                    color: color
+                });
+            }
+        }
+
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            gameOver = false;
+            bullets = [];
+            enemies = [];
+            particles = [];
+            player.x = canvas.width / 2;
+            document.getElementById('score-text').innerText = score;
+            document.getElementById('lives-text').innerText = "♥♥♥";
+        }
+
+        // 🔄 遊戲主循環（每秒跑 60 次）
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 🪐 背景畫上一點點動態星空感
+            ctx.fillStyle = "rgba(255,255,255,0.1)";
+            for(let i=0; i<5; i++) {
+                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+            }
+
+            if (!gameOver) {
+                // 1. 玩家自動開火機制（每 180 毫秒發射一發雷射）
+                let now = Date.now();
+                if (now - lastShotTime > 180) {
+                    bullets.push({ x: player.x, y: player.y - 12, speed: 7 });
+                    lastShotTime = now;
+                }
+
+                // 2. 敵機生成（隨分數越高，生越快）
+                enemySpawnTimer++;
+                let spawnInterval = Math.max(25, 50 - Math.floor(score / 5));
+                if (enemySpawnTimer > spawnInterval) {
+                    enemies.push({
+                        x: Math.random() * (canvas.width - 24) + 12,
+                        y: -10,
+                        w: 22,
+                        h: 18,
+                        speed: Math.random() * 1.5 + 1 + (score * 0.05) // 速度隨分數略微加成
+                    });
+                    enemySpawnTimer = 0;
+                }
+
+                // 3. 繪製玩家戰機 (極簡科幻三角翼)
+                ctx.fillStyle = "#00ffcc";
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y - player.h/2);
+                ctx.lineTo(player.x - player.w/2, player.y + player.h/2);
+                ctx.lineTo(player.x + player.w/2, player.y + player.h/2);
+                ctx.closePath();
+                ctx.fill();
+                // 戰機霓虹引擎火光
+                ctx.fillStyle = "#ff0055";
+                ctx.fillRect(player.x - 3, player.y + player.h/2, 6, 4);
+
+                // 4. 更新並繪製玩家子彈
+                ctx.fillStyle = "#00ffcc";
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    let b = bullets[i];
+                    b.y -= b.speed;
+                    ctx.fillRect(b.x - 1.5, b.y, 3, 10); // 畫出雷射束
+                    
+                    // 超出螢幕邊界就移除
+                    if (b.y < -10) bullets.splice(i, 1);
+                }
+
+                // 5. 更新並繪製敵機
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    e.y += e.speed;
+
+                    // 繪製外星人敵機 (倒三角形凶狠外觀)
+                    ctx.fillStyle = "#ffaa00";
+                    ctx.beginPath();
+                    ctx.moveTo(e.x - e.w/2, e.y - e.h/2);
+                    ctx.lineTo(e.x + e.w/2, e.y - e.h/2);
+                    ctx.lineTo(e.x, e.y + e.h/2);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 🛸 碰撞檢查 A：子彈有沒有射中敵機
+                    for (let j = bullets.length - 1; j >= 0; j--) {
+                        let b = bullets[j];
+                        if (b.x > e.x - e.w/2 && b.x < e.x + e.w/2 && b.y > e.y - e.h/2 && b.y < e.y + e.h/2) {
+                            createExplosion(e.x, e.y, "#ffaa00"); // 觸發爆炸效果
+                            enemies.splice(i, 1);
+                            bullets.splice(j, 1);
+                            score++;
+                            document.getElementById('score-text').innerText = score;
+                            break;
+                        }
+                    }
+
+                    // 🚀 碰撞檢查 B：敵機有沒有撞到玩家戰機
+                    if (enemies[i] && Math.abs(e.x - player.x) < (e.w/2 + player.w/2) && Math.abs(e.y - player.y) < (e.h/2 + player.h/2)) {
+                        createExplosion(player.x, player.y, "#ff0055");
+                        enemies.splice(i, 1);
+                        lives--;
+                        document.getElementById('lives-text').innerText = "♥".repeat(lives);
+                        if (lives <= 0) {
+                            gameOver = true;
+                            // 儲存最高分紀錄到 localStorage
+                            if (score > highScore) {
+                                highScore = score;
+                                localStorage.setItem('space_highscore', highScore);
+                                document.getElementById('high-text').innerText = highScore;
+                            }
+                        }
+                    }
+
+                    // 敵機如果突破防線落到底部，玩家扣一命
+                    if (e.y > canvas.height + 10) {
+                        enemies.splice(i, 1);
+                        lives--;
+                        document.getElementById('lives-text').innerText = "♥".repeat(lives);
+                        if (lives <= 0) { gameOver = true; }
+                    }
+                }
+            } else {
+                // 💀 遊戲結束畫面提示
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ff0055";
+                ctx.font = "bold 24px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("戰機墜毀 GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillStyle = "#fff";
+                ctx.font = "14px sans-serif";
+                ctx.fillText(`最終守護得分: ${score}`, canvas.width / 2, canvas.height / 2 + 15);
+                ctx.fillStyle = "#00ffcc";
+                ctx.fillText("點擊畫布 重新出擊 🚀", canvas.width / 2, canvas.height / 2 + 50);
+            }
+
+            // 6. 更新並繪製爆炸粒子群 (不管有沒有 Game Over 都要渲染完粒子動畫)
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.now * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0; // 還原透明度
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 啟動星戰引擎
+        gameLoop();
+    </script>
+</body>
+</html>
