@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極簡策略：王國守衛戰 🏹</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0; background: #0f111a; color: #fff;
+            font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden;
+        }
+        .hud {
+            width: 100%; max-width: 360px; display: flex; justify-content: space-between; padding: 8px 12px; font-size: 13px; font-weight: bold; font-family: monospace; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid #222;
+        }
+        canvas { background: #161925; border: 2px solid #333; display: block; }
+        .build-menu {
+            width: 100%; max-width: 360px; display: flex; justify-content: space-around; padding: 8px; background: #1a1d29; border-top: 1px solid #333;
+        }
+        .build-btn {
+            background: #222533; color: white; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: center; font-weight: bold;
+        }
+        .build-btn.active { background: #00ffcc; color: #111; border-color: #00ffcc; }
+        .btn-lobby { width: 90%; max-width: 360px; padding: 10px; background: #222; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; margin: 8px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="hud">
+        <div>金幣: <span style="color:#ffe600;" id="gold-text">150</span></div>
+        <div>波次: <span style="color:#00ffcc;" id="wave-text">1</span></div>
+        <div>王國血量: <span style="color:#ff0055;" id="hp-text">10</span></div>
+    </div>
+
+    <canvas id="towerCanvas" width="360" height="360"></canvas>
+
+    <div class="build-menu">
+        <div class="build-btn active" id="btn-arrow" onclick="selectTower('arrow')">🏹 弓箭塔<br><span style="color:#ffe600">100g</span></div>
+        <div class="build-btn" id="btn-ice" onclick="selectTower('ice')">❄️ 冰霜塔<br><span style="color:#ffe600">120g</span></div>
+        <div class="build-btn" id="btn-cannon" onclick="selectTower('cannon')">💣 火砲塔<br><span style="color:#ffe600">150g</span></div>
+    </div>
+
+    <button class="btn-lobby" onclick="if(window.parent && window.parent.closeGame){window.parent.closeGame()}else{location.href='index.html'}">🚪 棄防回大廳</button>
+
+    <script>
+        const canvas = document.getElementById('towerCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gold = 150;
+        let wave = 1;
+        let hp = 10;
+        let gameOver = false;
+        let selectedTowerType = 'arrow';
+
+        // 🗺️ 簡易固定敵軍路徑點 (X, Y)
+        const path = [
+            {x: 0, y: 60}, {x: 260, y: 60}, {x: 260, y: 220}, {x: 100, y: 220}, {x: 100, y: 320}, {x: 360, y: 320}
+        ];
+
+        let towers = [];
+        let enemies = [];
+        let projectiles = [];
+        let spawnTimer = 0;
+        let enemiesToSpawn = 5;
+        let waveActive = true;
+
+        const towerConfigs = {
+            arrow: { cost: 100, range: 75, cd: 30, color: '#00ffcc', icon: '🏹' },
+            ice: { cost: 120, range: 60, cd: 45, color: '#00bfff', icon: '❄️' },
+            cannon: { cost: 150, range: 90, cd: 70, color: '#ffaa00', icon: '💣' }
+        };
+
+        function selectTower(type) {
+            selectedTowerType = type;
+            document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${type}`).classList.add('active');
+        }
+
+        // 📱 點擊網格地圖建造或升級防禦塔
+        canvas.addEventListener('click', (e) => {
+            if (gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            // 檢查是否點到現有的塔（有點到就升級）
+            for (let t of towers) {
+                if (Math.hypot(t.x - clickX, t.y - clickY) < 18) {
+                    let cost = Math.floor(towerConfigs[t.type].cost * 0.7);
+                    if (gold >= cost) {
+                        gold -= cost;
+                        t.level++;
+                        t.range += 10;
+                        document.getElementById('gold-text').innerText = gold;
+                    }
+                    return;
+                }
+            }
+
+            // 建造新塔
+            let cfg = towerConfigs[selectedTowerType];
+            if (gold >= cfg.cost) {
+                // 簡易路徑碰撞防護：離通道太近不給蓋
+                for (let i = 0; i < path.length - 1; i++) {
+                    if (clickY > path[i].y - 20 && clickY < path[i].y + 20) return; 
+                }
+                gold -= cfg.cost;
+                towers.push({ x: clickX, y: clickY, type: selectedTowerType, level: 1, range: cfg.range, cdTimer: 0 });
+                document.getElementById('gold-text').innerText = gold;
+            }
+        });
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 🧱 1. 繪製防線通道
+            ctx.strokeStyle = '#282d42'; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+            for(let p of path) ctx.lineTo(p.x, p.y); ctx.stroke();
+
+            if (!gameOver) {
+                // 2. 出怪邏輯
+                if (waveActive && enemiesToSpawn > 0) {
+                    spawnTimer++;
+                    if (spawnTimer > 45) {
+                        enemies.push({ x: path[0].x, y: path[0].y, pathIndex: 0, hp: 10 + wave * 4, maxHp: 10 + wave * 4, speed: 1.2, slowed: false, slowDuration: 0 });
+                        enemiesToSpawn--; spawnTimer = 0;
+                    }
+                }
+
+                // 3. 處理怪物移動與繪製
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    let speed = e.slowed ? e.speed * 0.5 : e.speed;
+                    if (e.slowed) { e.slowDuration--; if (e.slowDuration <= 0) e.slowed = false; }
+
+                    let target = path[e.pathIndex + 1];
+                    let angle = Math.atan2(target.y - e.y, target.x - e.x);
+                    e.x += Math.cos(angle) * speed; e.y += Math.sin(angle) * speed;
+
+                    if (Math.hypot(target.x - e.x, target.y - e.y) < 4) {
+                        e.pathIndex++;
+                        if (e.pathIndex >= path.length - 1) {
+                            hp--; enemies.splice(i, 1);
+                            document.getElementById('hp-text').innerText = hp;
+                            if (hp <= 0) gameOver = true;
+                            continue;
+                        }
+                    }
+
+                    // 畫怪物
+                    ctx.fillStyle = e.slowed ? '#00bfff' : '#ff0055';
+                    ctx.beginPath(); ctx.arc(e.x, e.y, 8, 0, Math.PI*2); ctx.fill();
+                    // 血條
+                    ctx.fillStyle = '#444'; ctx.fillRect(e.x - 10, e.y - 14, 20, 3);
+                    ctx.fillStyle = '#00ffcc'; ctx.fillRect(e.x - 10, e.y - 14, (e.hp / e.maxHp) * 20, 3);
+                }
+
+                // 下一波檢測
+                if (enemies.length === 0 && enemiesToSpawn === 0) {
+                    wave++; enemiesToSpawn = 5 + Math.floor(wave * 1.5); waveActive = true; gold += 50 + wave * 10;
+                    document.getElementById('wave-text').innerText = wave;
+                    document.getElementById('gold-text').innerText = gold;
+                }
+
+                // 4. 防禦塔開火邏輯
+                for (let t of towers) {
+                    let cfg = towerConfigs[t.type];
+                    // 畫塔範圍圈 (輕微半透明)
+                    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+                    // 畫塔本身
+                    ctx.fillStyle = cfg.color; ctx.beginPath(); ctx.arc(t.x, t.y, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillText(`L${t.level}`, t.x, t.y + 4);
+
+                    if (t.cdTimer > 0) { t.cdTimer--; continue; }
+
+                    // 尋找範圍內的怪物
+                    for (let e of enemies) {
+                        if (Math.hypot(e.x - t.x, e.y - t.y) < t.range) {
+                            projectiles.push({ x: t.x, y: t.y, target: e, type: t.type, dmg: 3 + t.level * 2, speed: 5 });
+                            t.cdTimer = cfg.cd;
+                            break;
+                        }
+                    }
+                }
+
+                // 5. 飛彈渲染
+                for (let i = projectiles.length - 1; i >= 0; i--) {
+                    let p = projectiles[i];
+                    if (!enemies.includes(p.target)) { projectiles.splice(i, 1); continue; }
+
+                    let angle = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+                    p.x += Math.cos(angle) * p.speed; p.y += Math.sin(angle) * p.speed;
+
+                    ctx.fillStyle = towerConfigs[p.type].color;
+                    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+
+                    if (Math.hypot(p.target.x - p.x, p.target.y - p.y) < 5) {
+                        p.target.hp -= p.dmg;
+                        if (p.type === 'ice') { p.target.slowed = true; p.target.slowDuration = 90; }
+                        if (p.target.hp <= 0) {
+                            let idx = enemies.indexOf(p.target);
+                            if (idx > -1) { enemies.splice(idx, 1); gold += 15; document.getElementById('gold-text').innerText = gold; }
+                        }
+                        projectiles.splice(i, 1);
+                    }
+                }
+            } else {
+                ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ff0055"; ctx.font = "bold 24px sans-serif"; ctx.textAlign = "center";
+                ctx.fillText("王國失守 GAME OVER", canvas.width/2, canvas.height/2);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop();
+    </script>
+</body>
+</html>
