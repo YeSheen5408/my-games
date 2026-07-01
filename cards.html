@@ -2,9 +2,13 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>記憶力大考驗翻牌遊戲</title>
     <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* 移除手機點擊陰影 */
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
@@ -14,17 +18,19 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden; /* 防止頁面滑動影響遊戲 */
         }
-        h1 { color: #333; margin-bottom: 10px; }
-        .score-board { font-size: 18px; margin-bottom: 20px; color: #665; }
+        h1 { color: #333; margin: 0 0 10px 0; font-size: 24px; }
+        .score-board { font-size: 16px; margin-bottom: 15px; color: #665; }
         .game-grid {
             display: grid;
-            grid-template-columns: repeat(4, 80px);
-            grid-gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 8px;
+            width: 90%;
+            max-width: 360px; /* 限制手機上最大寬度 */
         }
         .card {
-            width: 80px;
-            height: 80px;
+            aspect-ratio: 1 / 1; /* 確保卡牌一定是正方形 */
             background-color: #2e7d32;
             border-radius: 8px;
             display: flex;
@@ -35,8 +41,14 @@
             cursor: pointer;
             user-select: none;
             transition: background-color 0.3s, transform 0.1s;
+            position: relative; /* 給 iOS 修正用 */
+            -webkit-backface-visibility: hidden; /* 修正 iOS 翻轉問題 */
+            backface-visibility: hidden;
         }
-        .card:active { transform: scale(0.95); }
+        /* 移除電腦版的 active 縮放，避免手機點擊錯亂 */
+        @media (min-width: 768px) {
+            .card:active { transform: scale(0.95); }
+        }
         .card.flipped {
             background-color: #ffffff;
             color: #000;
@@ -45,7 +57,7 @@
         }
         .card.matched {
             background-color: #e8f5e9;
-            color: #81c784;
+            color: #81c784 !important; /* 確保顏色不被覆蓋 */
             cursor: default;
         }
         #restart-btn {
@@ -86,22 +98,22 @@
             canFlip = true;
             document.getElementById('click-count').innerText = clicks;
 
-            // 洗牌演算法
             const shuffled = [...emojis].sort(() => Math.random() - 0.5);
 
-            // 建立卡牌
             shuffled.forEach((emoji, index) => {
                 const card = document.createElement('div');
                 card.classList.add('card');
                 card.dataset.emoji = emoji;
-                card.dataset.id = index;
                 card.innerText = emoji;
                 card.addEventListener('click', flipCard);
                 grid.appendChild(card);
             });
         }
 
-        function flipCard() {
+        function flipCard(e) {
+            // 防止手機連點的預防措施
+            if (e.type === 'touchend') e.preventDefault();
+            
             if (!canFlip) return;
             if (this.classList.contains('flipped') || this.classList.contains('matched')) return;
 
@@ -120,7 +132,6 @@
             const [card1, card2] = flippedCards;
 
             if (card1.dataset.emoji === card2.dataset.emoji) {
-                // 配對成功
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 matchedCount += 2;
@@ -131,7 +142,6 @@
                     setTimeout(() => alert(`恭喜通關！你總共點擊了 ${clicks} 次！`), 300);
                 }
             } else {
-                // 配對失敗，1秒後蓋回去
                 setTimeout(() => {
                     card1.classList.remove('flipped');
                     card2.classList.remove('flipped');
@@ -143,6 +153,14 @@
 
         // 頁面載入時初始化遊戲
         initGame();
+        
+        // 額外防止手機滑動導致遊戲體驗變差
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.className.indexOf('card') !== -1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
     </script>
 </body>
 </html>
