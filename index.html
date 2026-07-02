@@ -156,15 +156,27 @@
             z-index: 100000; 
             box-shadow: 0 4px 20px rgba(255,230,0,0.4);
             font-family: monospace;
+            flex-wrap: wrap;
         }
         .timer-highlight { color: #ffe600; font-weight: bold; }
         .count-highlight { color: #00ffcc; font-weight: bold; }
+        
+        /* 升級：自動重整開關按鈕樣式 */
+        .btn-toggle-auto {
+            background: #00ffcc; color: #111; border: none; border-radius: 15px;
+            padding: 4px 12px; font-size: 11px; font-weight: bold; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-toggle-auto.disabled {
+            background: #555; color: #aaa;
+        }
+
         .btn-dev-refresh {
             background: #ff0055; color: white; border: none; border-radius: 15px;
             padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer;
         }
         .btn-dev-close {
-            background: #555; color: white; border: none; border-radius: 15px;
+            background: #444; color: white; border: none; border-radius: 15px;
             padding: 4px 10px; font-size: 11px; cursor: pointer; display: none; 
         }
     </style>
@@ -172,8 +184,9 @@
 <body>
 
     <div class="dev-floater">
-        <span>⏳ 快取刷新: <span class="timer-highlight" id="devTimer">60</span>s</span>
-        <span>🔄 已刷新: <span class="count-highlight" id="refreshCount">0</span> 次</span>
+        <button class="btn-toggle-auto" id="autoToggleBtn" onclick="toggleAutoRefresh()">🟢 自動刷新: 開</button>
+        <span>⏳ 剩餘: <span class="timer-highlight" id="devTimer">60</span>s</span>
+        <span>🔄 已重整: <span class="count-highlight" id="refreshCount">0</span> 次</span>
         <button class="btn-dev-refresh" onclick="manualRefresh()">🔄 手動破快取</button>
         <button class="btn-dev-close" id="devCloseBtn" onclick="closeGame()">🚪 回大廳</button>
     </div>
@@ -195,7 +208,6 @@
     </div>
 
     <script>
-        // 母體遊戲清單（已完美補上火柴人跑酷 runner）
         const originalGames = [
             { id: "cards", url: "cards.html", icon: "🧠", title: "記憶力大考驗", desc: "翻開卡牌，考驗你的瞬間記憶力！" },
             { id: "snake", url: "snake.html", icon: "🐍", title: "經典貪食蛇", desc: "控制小蛇吃掉食物，挑戰最高分數！" },
@@ -213,6 +225,9 @@
 
         let currentSort = localStorage.getItem('lobby_sort_mode') || 'classic';
         let favorites = JSON.parse(localStorage.getItem('lobby_favorites')) || [];
+
+        // ⚙️ 新增：從快取記憶開關狀態（預設開啟 1，關閉為 0）
+        let isAutoRefreshEnabled = localStorage.getItem('dev_auto_refresh') !== '0';
 
         let countdown = 60;
         let timerInterval = null;
@@ -283,17 +298,65 @@
             renderLobby();
         }
 
-        function updateCountUI() { document.getElementById('refreshCount').innerText = refreshCount; }
-        function startTimer() {
-            clearInterval(timerInterval); countdown = 60; document.getElementById('devTimer').innerText = countdown;
-            timerInterval = setInterval(() => { countdown--; document.getElementById('devTimer').innerText = countdown; if (countdown <= 0) autoRefreshGame(); }, 1000);
+        // ⚙️ 新增：切換自動刷新開關
+        function toggleAutoRefresh() {
+            isAutoRefreshEnabled = !isAutoRefreshEnabled;
+            localStorage.setItem('dev_auto_refresh', isAutoRefreshEnabled ? '1' : '0');
+            updateToggleBtnUI();
+            
+            if (isAutoRefreshEnabled) {
+                startTimer(); // 重新啟動計時器
+            } else {
+                document.getElementById('devTimer').innerText = "⏸️"; // 顯示暫停符號
+            }
         }
+
+        // ⚙️ 新增：更新開關按鈕的外觀
+        function updateToggleBtnUI() {
+            const btn = document.getElementById('autoToggleBtn');
+            if (isAutoRefreshEnabled) {
+                btn.innerText = "🟢 自動刷新: 開";
+                btn.classList.remove('disabled');
+            } else {
+                btn.innerText = "🔴 自動刷新: 關";
+                btn.classList.add('disabled');
+            }
+        }
+
+        // 計時器模組（整合開關判斷）
+        function updateCountUI() { document.getElementById('refreshCount').innerText = refreshCount; }
+        
+        function startTimer() {
+            clearInterval(timerInterval);
+            if (!isAutoRefreshEnabled) {
+                document.getElementById('devTimer').innerText = "⏸️";
+                return; // 如果關閉了，直接不執行計時遞減
+            }
+            countdown = 60; 
+            document.getElementById('devTimer').innerText = countdown;
+            
+            timerInterval = setInterval(() => {
+                if (!isAutoRefreshEnabled) {
+                    clearInterval(timerInterval);
+                    document.getElementById('devTimer').innerText = "⏸️";
+                    return;
+                }
+                countdown--; 
+                document.getElementById('devTimer').innerText = countdown; 
+                if (countdown <= 0) autoRefreshGame(); 
+            }, 1000);
+        }
+
         function openGame(url) { currentUrl = url; const stage = document.getElementById('gameStage'); const iframe = document.getElementById('gameFrame'); const closeBtn = document.getElementById('devCloseBtn'); iframe.src = url + "?t=" + new Date().getTime(); stage.style.display = "block"; closeBtn.style.display = "inline-block"; startTimer(); }
-        function autoRefreshGame() { refreshCount++; sessionStorage.setItem('global_refresh_count', refreshCount); updateCountUI(); const iframe = document.getElementById('gameFrame'); if (currentUrl && document.getElementById('gameStage').style.display === "block") { iframe.src = currentUrl + "?t=" + new Date().getTime(); } else { location.href = "index.html?t=" + new Date().getTime(); } countdown = 60; document.getElementById('devTimer').innerText = countdown; }
-        function manualRefresh() { const iframe = document.getElementById('gameFrame'); if (currentUrl && document.getElementById('gameStage').style.display === "block") { iframe.src = currentUrl + "?t=" + new Date().getTime(); } else { location.href = "index.html?t=" + new Date().getTime(); } countdown = 60; document.getElementById('devTimer').innerText = countdown; }
+        function autoRefreshGame() { if (!isAutoRefreshEnabled) return; refreshCount++; sessionStorage.setItem('global_refresh_count', refreshCount); updateCountUI(); const iframe = document.getElementById('gameFrame'); if (currentUrl && document.getElementById('gameStage').style.display === "block") { iframe.src = currentUrl + "?t=" + new Date().getTime(); } else { location.href = "index.html?t=" + new Date().getTime(); } countdown = 60; document.getElementById('devTimer').innerText = countdown; }
+        function manualRefresh() { const iframe = document.getElementById('gameFrame'); if (currentUrl && document.getElementById('gameStage').style.display === "block") { iframe.src = currentUrl + "?t=" + new Date().getTime(); } else { location.href = "index.html?t=" + new Date().getTime(); } countdown = 60; document.getElementById('devTimer').innerText = isAutoRefreshEnabled ? countdown : "⏸️"; }
         function closeGame() { const stage = document.getElementById('gameStage'); const iframe = document.getElementById('gameFrame'); const closeBtn = document.getElementById('devCloseBtn'); iframe.src = ""; stage.style.display = "none"; closeBtn.style.display = "none"; currentUrl = ""; refreshCount = 0; sessionStorage.setItem('global_refresh_count', refreshCount); updateCountUI(); startTimer(); }
 
-        updateCountUI(); startTimer(); renderLobby();
+        // 初始化
+        updateToggleBtnUI();
+        updateCountUI(); 
+        startTimer(); 
+        renderLobby();
     </script>
 </body>
 </html>
