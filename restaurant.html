@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極簡閒置餐館 🍳</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e24; color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 15px;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 5px; color: #ff9f43; text-shadow: 0 0 10px rgba(255,159,67,0.3); }
+        .subtitle { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; text-align: center; }
+
+        /* 頂部金幣面板 */
+        .money-panel {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 12px 25px; display: flex; gap: 20px;
+            justify-content: center; margin-bottom: 15px; font-weight: bold; font-size: 1.2rem;
+        }
+        .val-gold { color: #feca57; }
+        .val-level { color: #ff6b6b; }
+
+        /* 餐廳佈局區 */
+        .restaurant-layout {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            width: 100%; max-width: 500px; margin-bottom: 15px;
+        }
+        .section-box {
+            background: #2f3542; border-radius: 12px; padding: 12px;
+            border: 1px solid rgba(255,255,255,0.05); min-height: 140px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .section-title { font-size: 0.9rem; font-weight: bold; color: #a4b0be; margin-bottom: 10px; }
+        
+        /* 廚房與座位 */
+        .kitchen-slot, .table-slot {
+            width: 100%; background: rgba(0,0,0,0.2); border-radius: 8px;
+            padding: 8px; margin-bottom: 6px; display: flex; align-items: center;
+            justify-content: space-between; font-size: 0.85rem;
+        }
+        .progress-bar {
+            width: 50px; height: 8px; background: #57606f; border-radius: 4px; overflow: hidden;
+        }
+        .progress-fill { height: 100%; width: 0%; background: #1dd1a1; transition: width 0.1s linear; }
+
+        /* 升級控制區 */
+        .upgrade-panel {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            width: 100%; max-width: 500px;
+        }
+        .btn-upgrade {
+            background: #353b48; border: 1px solid #57606f; border-radius: 8px;
+            padding: 10px; color: #fff; cursor: pointer; text-align: left;
+            transition: all 0.2s; display: flex; flex-direction: column; gap: 4px;
+        }
+        .btn-upgrade:hover { background: #4b6584; }
+        .btn-upgrade:disabled { opacity: 0.5; cursor: not-allowed; background: #2f3542; }
+        .up-title { font-weight: bold; font-size: 0.85rem; color: #70a1ff; }
+        .up-cost { font-size: 0.75rem; color: #feca57; }
+    </style>
+</head>
+<body>
+
+    <h1>🍳 極簡閒置餐館</h1>
+    <div class="subtitle">自動烹飪、自動送餐，升級設施打造星級餐廳！</div>
+
+    <div class="money-panel">
+        <div>💰 金幣: <span class="val-gold" id="gold">0</span></div>
+        <div>⭐ 菜色等級: <span class="val-level" id="dishLevel">Lv.1</span></div>
+    </div>
+
+    <div class="restaurant-layout">
+        <!-- 廚房 -->
+        <div class="section-box">
+            <div class="section-title">👨‍🍳 廚房 (製作中)</div>
+            <div id="kitchenList" style="width: 100%;"></div>
+        </div>
+
+        <!-- 用餐區 -->
+        <div class="section-box">
+            <div class="section-title">🍽️ 座位區 (顧客)</div>
+            <div id="tablesList" style="width: 100%;"></div>
+        </div>
+    </div>
+
+    <!-- 升級選單 -->
+    <div class="upgrade-panel">
+        <button class="btn-upgrade" id="btnUpChef" onclick="buyUpgrade('chef')">
+            <span class="up-title">⚡ 提高烹飪速度</span>
+            <span class="up-cost" id="costChef">💰 15 金幣</span>
+        </button>
+        <button class="btn-upgrade" id="btnUpDish" onclick="buyUpgrade('dish')">
+            <span class="up-title">🍔 研發高級菜色</span>
+            <span class="up-cost" id="costDish">💰 30 金幣</span>
+        </button>
+        <button class="btn-upgrade" id="btnUpTable" onclick="buyUpgrade('table')">
+            <span class="up-title">🪑 增加餐桌數量</span>
+            <span class="up-cost" id="costTable">💰 50 金幣</span>
+        </button>
+        <button class="btn-upgrade" id="btnUpSpeed" onclick="buyUpgrade('waiter')">
+            <span class="up-title">🏃‍♂️ 服務生加速</span>
+            <span class="up-cost" id="costWaiter">💰 25 金幣</span>
+        </button>
+    </div>
+
+    <script>
+        // 遊戲狀態數據
+        let gold = 0;
+        let dishLevel = 1;
+        let cookSpeed = 1; // 烹飪速度倍率
+        let waiterSpeed = 1; // 送餐速度倍率
+        let maxTables = 2; // 當前餐桌數
+
+        // 升級價格與係數
+        let costs = {
+            chef: 15,
+            dish: 30,
+            table: 50,
+            waiter: 25
+        };
+
+        const dishIcons = ["🍟", "🍔", "🍕", "🥩", "🍱", "🦞"];
+        const dishNames = ["薯條", "漢堡", "披薩", "牛排", "高級便當", "龍蝦大餐"];
+
+        // 模擬桌子與廚房隊列
+        let tables = [];
+
+        function initGame() {
+            for (let i = 0; i < maxTables; i++) {
+                tables.push({ id: i + 1, status: 'empty', progress: 0 });
+            }
+            renderContainer();
+            gameLoop();
+        }
+
+        function gameLoop() {
+            setInterval(() => {
+                tables.forEach(table => {
+                    if (table.status === 'empty') {
+                        // 顧客進店
+                        if (Math.random() < 0.3) {
+                            table.status = 'ordering';
+                            table.progress = 0;
+                        }
+                    } else if (table.status === 'ordering') {
+                        // 點餐完成 -> 進入烹飪
+                        table.status = 'cooking';
+                        table.progress = 0;
+                    } else if (table.status === 'cooking') {
+                        // 烹飪進度
+                        table.progress += 15 * cookSpeed;
+                        if (table.progress >= 100) {
+                            table.status = 'serving';
+                            table.progress = 0;
+                        }
+                    } else if (table.status === 'serving') {
+                        // 送餐進度
+                        table.progress += 25 * waiterSpeed;
+                        if (table.progress >= 100) {
+                            table.status = 'eating';
+                            table.progress = 0;
+                        }
+                    } else if (table.status === 'eating') {
+                        // 用餐完成 -> 結帳獲得金幣
+                        table.progress += 20;
+                        if (table.progress >= 100) {
+                            let reward = dishLevel * 10;
+                            gold += reward;
+                            table.status = 'empty';
+                            table.progress = 0;
+                        }
+                    }
+                });
+                updateUI();
+            }, 300);
+        }
+
+        function renderContainer() {
+            const kitchenList = document.getElementById('kitchenList');
+            const tablesList = document.getElementById('tablesList');
+            
+            kitchenList.innerHTML = '';
+            tablesList.innerHTML = '';
+
+            tables.forEach((table, idx) => {
+                // 座位
+                const tSlot = document.createElement('div');
+                tSlot.className = 'table-slot';
+                tSlot.id = `table-slot-${idx}`;
+                tablesList.appendChild(tSlot);
+
+                // 廚房
+                const kSlot = document.createElement('div');
+                kSlot.className = 'kitchen-slot';
+                kSlot.id = `kitchen-slot-${idx}`;
+                kitchenList.appendChild(kSlot);
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('gold').innerText = Math.floor(gold);
+            document.getElementById('dishLevel').innerText = `Lv.${dishLevel} ${dishNames[dishLevel-1] || '頂級佳餚'}`;
+
+            // 更新升級按鈕狀態
+            document.getElementById('btnUpChef').disabled = gold < costs.chef;
+            document.getElementById('btnUpDish').disabled = gold < costs.dish || dishLevel >= dishNames.length;
+            document.getElementById('btnUpTable').disabled = gold < costs.table || maxTables >= 5;
+            document.getElementById('btnUpSpeed').disabled = gold < costs.waiter;
+
+            document.getElementById('costChef').innerText = `💰 ${costs.chef} 金幣`;
+            document.getElementById('costDish').innerText = dishLevel >= dishNames.length ? '已達上限' : `💰 ${costs.dish} 金幣`;
+            document.getElementById('costTable').innerText = maxTables >= 5 ? '已達上限' : `💰 ${costs.table} 金幣`;
+            document.getElementById('costWaiter').innerText = `💰 ${costs.waiter} 金幣`;
+
+            // 更新各桌次動態
+            tables.forEach((table, idx) => {
+                const tSlot = document.getElementById(`table-slot-${idx}`);
+                const kSlot = document.getElementById(`kitchen-slot-${idx}`);
+                if (!tSlot || !kSlot) return;
+
+                let icon = dishIcons[dishLevel - 1] || "🍱";
+                let tStatusText = "空位 🪑";
+                let kStatusText = "空閒 💤";
+
+                if (table.status === 'ordering') tStatusText = "點餐中 📜";
+                if (table.status === 'cooking') {
+                    tStatusText = "等待出餐 ⏳";
+                    kStatusText = `烹飪中 ${icon}`;
+                }
+                if (table.status === 'serving') {
+                    tStatusText = "送餐中 🚶‍♂️";
+                    kStatusText = "完成出餐 🔔";
+                }
+                if (table.status === 'eating') tStatusText = `用餐中 ${icon}`;
+
+                tSlot.innerHTML = `
+                    <span>桌 ${table.id}: ${tStatusText}</span>
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${table.progress}%"></div></div>
+                `;
+
+                kSlot.innerHTML = `
+                    <span>爐 ${table.id}: ${kStatusText}</span>
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${table.status === 'cooking' ? table.progress : 0}%"></div></div>
+                `;
+            });
+        }
+
+        function buyUpgrade(type) {
+            if (gold >= costs[type]) {
+                gold -= costs[type];
+                if (type === 'chef') {
+                    cookSpeed += 0.4;
+                    costs.chef = Math.floor(costs.chef * 1.5);
+                } else if (type === 'dish' && dishLevel < dishNames.length) {
+                    dishLevel++;
+                    costs.dish = Math.floor(costs.dish * 1.8);
+                } else if (type === 'table' && maxTables < 5) {
+                    maxTables++;
+                    tables.push({ id: maxTables, status: 'empty', progress: 0 });
+                    costs.table = Math.floor(costs.table * 2.2);
+                    renderContainer();
+                } else if (type === 'waiter') {
+                    waiterSpeed += 0.5;
+                    costs.waiter = Math.floor(costs.waiter * 1.5);
+                }
+                updateUI();
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
