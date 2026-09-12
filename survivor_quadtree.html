@@ -1,0 +1,429 @@
+
+
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>千人地牢倖存者 (QuadTree 高效能測試) ⚔️</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background: #0f0f14; color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        #gameCanvas { background: #16161e; display: block; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        
+        /* UI 覆蓋層 */
+        .ui-layer {
+            position: absolute; top: 15px; left: 15px; pointer-events: none;
+            font-family: monospace; font-size: 14px; text-shadow: 1px 1px 2px #000;
+        }
+        .level-up-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10;
+        }
+        .modal-title { font-size: 2rem; color: #feca57; margin-bottom: 20px; font-weight: bold; }
+        .card-container { display: flex; gap: 15px; }
+        .card {
+            background: #2f3542; border: 2px solid #57606f; border-radius: 12px;
+            padding: 20px; width: 180px; text-align: center; cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover { transform: translateY(-8px); border-color: #ff9f43; background: #353b48; }
+        .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; color: #ff9f43; }
+        .card-desc { font-size: 0.85rem; color: #ccc; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-layer">
+        <div>⚔️ 擊殺數: <span id="kills">0</span></div>
+        <div>👾 畫面敵人數: <span id="enemyCount">0</span> (QuadTree 優化中)</div>
+        <div>⚡ 幀率 (FPS): <span id="fps">60</span></div>
+        <div>🌟 等級: <span id="level">1</span> (EXP: <span id="exp">0</span>/<span id="maxExp">10</span>)</div>
+    </div>
+
+    <!-- 升級選擇選單 -->
+    <div class="level-up-modal" id="upgradeModal">
+        <div class="modal-title">🎉 等級提升！選擇一項突破能力</div>
+        <div class="card-container" id="cardsBox"></div>
+    </div>
+
+    <canvas id="gameCanvas" width="900" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 四叉樹實作 (QuadTree for $O(N \log N)$ 空間碰撞優化)
+        class QuadTree {
+            constructor(boundary, capacity) {
+                this.boundary = boundary; // {x, y, w, h}
+                this.capacity = capacity;
+                this.points = [];
+                this.divided = false;
+            }
+
+            subdivide() {
+                const { x, y, w, h } = this.boundary;
+                const hw = w / 2, hh = h / 2;
+                this.northeast = new QuadTree({ x: x + hw, y: y, w: hw, h: hh }, this.capacity);
+                this.northwest = new QuadTree({ x: x, y: y, w: hw, h: hh }, this.capacity);
+                this.southeast = new QuadTree({ x: x + hw, y: y + hh, w: hw, h: hh }, this.capacity);
+                this.southwest = new QuadTree({ x: x, y: y + hh, w: hw, h: hh }, this.capacity);
+                this.divided = true;
+            }
+
+            insert(point) {
+                if (!this.contains(this.boundary, point)) return false;
+                if (this.points.length < this.capacity) {
+                    this.points.push(point);
+                    return true;
+                }
+                if (!this.divided) this.subdivide();
+                return (this.northeast.insert(point) || this.northwest.insert(point) ||
+                        this.southeast.insert(point) || this.southwest.insert(point));
+            }
+
+            query(range, found = []) {
+                if (!this.intersects(this.boundary, range)) return found;
+                for (let p of this.points) {
+                    if (this.contains(range, p)) found.push(p);
+                }
+                if (this.divided) {
+                    this.northwest.query(range, found);
+                    this.northeast.query(range, found);
+                    this.southwest.query(range, found);
+                    this.southeast.query(range, found);
+                }
+                return found;
+            }
+
+            contains(b, p) {
+                return (p.x >= b.x - b.w && p.x <= b.x + b.w && p.y >= b.y - b.h && p.y <= b.y + b.h);
+            }
+
+            intersects(b, r) {
+                return !(r.x - r.w > b.x + b.w || r.x + r.w < b.x - b.w || r.y - r.h > b.y + b.h || r.y + r.h < b.y - b.h);
+            }
+        }
+
+        // 遊戲狀態與變數
+        let keys = {};
+        let mouse = { x: 0, y: 0 };
+        let kills = 0, exp = 0, maxExp = 10, level = 1;
+        let isPaused = false;
+        let lastTime = performance.now(), frameCount = 0, currentFps = 60;
+
+        // 玩家實體
+        let player = {
+            x: canvas.width / 2, y: canvas.height / 2, r: 12, hp: 100, maxHp: 100,
+            speed: 3, attackTimer: 0, fireRate: 20, pierce: 1, bulletCount: 1, orbCount: 0
+        };
+
+        let bullets = [], enemies = [], particles = [], gems = [], orbs = [];
+
+        // 可選能力庫
+        const UPGRADES = [
+            { id: "fireRate", title: "⚡ 射速強化", desc: "提升 25% 發射頻率" },
+            { id: "multishot", title: "🏹 多重射擊", desc: "每次發射額外增加 1 子彈" },
+            { id: "pierce", title: "🎯 貫穿彈頭", desc: "子彈穿透力 +1" },
+            { id: "orb", title: "🔮 環繞火球", desc: "生成一個繞身運轉的守護火球" },
+            { id: "speed", title: "👟 疾風走位", desc: "移動速度增加 15%" }
+        ];
+
+        // 鍵盤監聽
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        // 產出敵人 (隨時間持續增加產額)
+        function spawnEnemies() {
+            if (enemies.length < 1500) { // 最大容許 1500 單位動態測試
+                for (let i = 0; i < 3; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let dist = Math.max(canvas.width, canvas.height) / 2 + 50;
+                    enemies.push({
+                        x: player.x + Math.cos(angle) * dist,
+                        y: player.y + Math.sin(angle) * dist,
+                        r: 8, hp: 2 + Math.floor(level * 0.5), speed: 1.2 + Math.random() * 0.8
+                    });
+                }
+            }
+        }
+
+        // 主迴圈
+        function gameLoop(now) {
+            // FPS 計算
+            frameCount++;
+            if (now - lastTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastTime = now;
+                document.getElementById('fps').innerText = currentFps;
+            }
+
+            if (!isPaused) {
+                update();
+                render();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            // 1. 玩家移動
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['arrowup']) dy -= 1;
+            if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1;
+            if (keys['d'] || keys['arrowright']) dx += 1;
+
+            if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+            player.x += dx * player.speed;
+            player.y += dy * player.speed;
+
+            // 限制邊界
+            player.x = Math.max(player.r, Math.min(canvas.width - player.r, player.x));
+            player.y = Math.max(player.r, Math.min(canvas.height - player.r, player.y));
+
+            // 2. 自動射擊 nearest 敵方
+            player.attackTimer++;
+            if (player.attackTimer >= player.fireRate && enemies.length > 0) {
+                player.attackTimer = 0;
+                // 找最近敵人
+                let nearest = null, minDist = Infinity;
+                enemies.forEach(e => {
+                    let d = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (d < minDist) { minDist = d; nearest = e; }
+                });
+
+                if (nearest) {
+                    let baseAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+                    let spread = 0.15;
+                    for (let i = 0; i < player.bulletCount; i++) {
+                        let offset = (i - (player.bulletCount - 1) / 2) * spread;
+                        bullets.push({
+                            x: player.x, y: player.y,
+                            vx: Math.cos(baseAngle + offset) * 8,
+                            vy: Math.sin(baseAngle + offset) * 8,
+                            life: 80, pierce: player.pierce
+                        });
+                    }
+                }
+            }
+
+            // 3. 更新環繞火球
+            orbs = [];
+            let timeSec = performance.now() * 0.003;
+            for (let i = 0; i < player.orbCount; i++) {
+                let a = timeSec + (i * (Math.PI * 2 / player.orbCount));
+                orbs.push({
+                    x: player.x + Math.cos(a) * 50,
+                    y: player.y + Math.sin(a) * 50,
+                    r: 6
+                });
+            }
+
+            // 4. 移動子彈
+            bullets.forEach((b, idx) => {
+                b.x += b.vx; b.y += b.vy; b.life--;
+                if (b.life <= 0) bullets.splice(idx, 1);
+            });
+
+            // 5. 建立 QuadTree 並進行高效碰撞檢測
+            let qtree = new QuadTree({ x: canvas.width / 2, y: canvas.height / 2, w: canvas.width / 2, h: canvas.height / 2 }, 4);
+            enemies.forEach(e => qtree.insert(e));
+
+            // 敵人移動 & 與玩家碰撞
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                let angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+
+                // 與玩家碰撞
+                if (Math.hypot(player.x - e.x, player.y - e.y) < player.r + e.r) {
+                    player.hp -= 0.2;
+                    if (player.hp <= 0) {
+                        alert(`💀 遊戲結束！生存擊殺數: ${kills}`);
+                        location.reload();
+                    }
+                }
+            }
+
+            // 子彈 vs 敵人 (透過 QuadTree 區域查詢)
+            bullets.forEach((b, bIdx) => {
+                let range = { x: b.x, y: b.y, w: 15, h: 15 };
+                let candidates = qtree.query(range);
+
+                for (let e of candidates) {
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + 4) {
+                        e.hp -= 1;
+                        b.pierce--;
+                        // 產生打擊粒子
+                        particles.push({ x: e.x, y: e.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, life: 10, color: '#ff4757' });
+
+                        if (e.hp <= 0) {
+                            let eIdx = enemies.indexOf(e);
+                            if (eIdx !== -1) {
+                                enemies.splice(eIdx, 1);
+                                kills++;
+                                gems.push({ x: e.x, y: e.y });
+                            }
+                        }
+                        if (b.pierce <= 0) {
+                            bullets.splice(bIdx, 1);
+                            break;
+                        }
+                    }
+                }
+            });
+
+            // 火球 vs 敵人
+            orbs.forEach(orb => {
+                let range = { x: orb.x, y: orb.y, w: 20, h: 20 };
+                let candidates = qtree.query(range);
+                candidates.forEach(e => {
+                    if (Math.hypot(orb.x - e.x, orb.y - e.y) < e.r + orb.r) {
+                        e.hp -= 0.5;
+                        if (e.hp <= 0) {
+                            let eIdx = enemies.indexOf(e);
+                            if (eIdx !== -1) {
+                                enemies.splice(eIdx, 1);
+                                kills++;
+                                gems.push({ x: e.x, y: e.y });
+                            }
+                        }
+                    }
+                });
+            });
+
+            // 6. 吃經驗寶石
+            for (let i = gems.length - 1; i >= 0; i--) {
+                let g = gems[i];
+                let dist = Math.hypot(player.x - g.x, player.y - g.y);
+                if (dist < 80) { // 磁鐵吸附效果
+                    g.x += (player.x - g.x) * 0.15;
+                    g.y += (player.y - g.y) * 0.15;
+                }
+                if (dist < player.r + 5) {
+                    gems.splice(i, 1);
+                    exp++;
+                    if (exp >= maxExp) triggerLevelUp();
+                }
+            }
+
+            // 7. 更新粒子
+            particles.forEach((p, idx) => {
+                p.x += p.vx; p.y += p.vy; p.life--;
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+
+            spawnEnemies();
+            updateUI();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製背景動態微型網格
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+            ctx.lineWidth = 1;
+            let gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // 繪製經驗寶石
+            ctx.fillStyle = "#54a0ff";
+            gems.forEach(g => {
+                ctx.beginPath(); ctx.arc(g.x, g.y, 3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // 繪製子彈
+            ctx.fillStyle = "#feca57";
+            bullets.forEach(b => {
+                ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // 繪製環繞火球
+            ctx.fillStyle = "#ff6b6b";
+            orbs.forEach(orb => {
+                ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // 繪製敵人
+            ctx.fillStyle = "#ff4757";
+            enemies.forEach(e => {
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // 繪製打擊粒子
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 2, 2);
+            });
+
+            // 繪製玩家
+            ctx.fillStyle = "#1dd1a1";
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2); ctx.fill();
+
+            // 玩家血條
+            ctx.fillStyle = "#333";
+            ctx.fillRect(player.x - 15, player.y + 18, 30, 4);
+            ctx.fillStyle = "#1dd1a1";
+            ctx.fillRect(player.x - 15, player.y + 18, (player.hp / player.maxHp) * 30, 4);
+        }
+
+        function triggerLevelUp() {
+            isPaused = true;
+            exp = 0;
+            level++;
+            maxExp = Math.floor(maxExp * 1.4);
+
+            const modal = document.getElementById('upgradeModal');
+            const box = document.getElementById('cardsBox');
+            box.innerHTML = '';
+
+            // 隨機選 3 個能力
+            let choices = [...UPGRADES].sort(() => 0.5 - Math.random()).slice(0, 3);
+            choices.forEach(up => {
+                let card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<div class="card-title">${up.title}</div><div class="card-desc">${up.desc}</div>`;
+                card.onclick = () => applyUpgrade(up.id);
+                box.appendChild(card);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function applyUpgrade(id) {
+            if (id === 'fireRate') player.fireRate = Math.max(5, player.fireRate * 0.75);
+            if (id === 'multishot') player.bulletCount++;
+            if (id === 'pierce') player.pierce++;
+            if (id === 'orb') player.orbCount++;
+            if (id === 'speed') player.speed *= 1.15;
+
+            document.getElementById('upgradeModal').style.display = 'none';
+            isPaused = false;
+        }
+
+        function updateUI() {
+            document.getElementById('kills').innerText = kills;
+            document.getElementById('enemyCount').innerText = enemies.length;
+            document.getElementById('level').innerText = level;
+            document.getElementById('exp').innerText = exp;
+            document.getElementById('maxExp').innerText = maxExp;
+        }
+
+        gameLoop(performance.now());
+    </script>
+</body>
+</html>
