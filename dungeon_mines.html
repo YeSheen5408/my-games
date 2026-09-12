@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地牢掃雷探險 🗡️</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d0f12; color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 15px;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 5px; color: #ffe600; text-shadow: 0 0 10px rgba(255,230,0,0.3); }
+        .subtitle { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; text-align: center; }
+
+        /* 玩家數值面板 */
+        .stats-panel {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 12px 20px; display: flex; gap: 15px; flex-wrap: wrap;
+            justify-content: center; margin-bottom: 15px; font-weight: bold; font-size: 0.95rem;
+        }
+        .stat-item { display: flex; align-items: center; gap: 5px; }
+        .val-hp { color: #ff4757; } .val-atk { color: #ffa502; }
+        .val-gold { color: #eccc68; } .val-floor { color: #2ed573; }
+
+        /* 地牢網格 */
+        .grid-container {
+            display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
+            background: #181b20; padding: 10px; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 1px solid #2c323b;
+            max-width: 420px; width: 100%; aspect-ratio: 1 / 1;
+        }
+        .cell {
+            background: #2a303c; border-radius: 8px; display: flex;
+            align-items: center; justify-content: center; font-size: 1.2rem;
+            font-weight: bold; cursor: pointer; transition: all 0.15s;
+            border: 1px solid rgba(255,255,255,0.05); position: relative;
+        }
+        .cell:hover { background: #3a4252; transform: scale(1.02); }
+        .cell.revealed { background: #121418; cursor: default; border-color: rgba(255,255,255,0.02); }
+        .cell.revealed:hover { transform: none; }
+        
+        /* 數字顏色 */
+        .num-1 { color: #70a1ff; } .num-2 { color: #2ed573; }
+        .num-3 { color: #ff4757; } .num-4 { color: #a55eea; }
+
+        /* 商店與控制區 */
+        .action-panel { display: flex; gap: 10px; margin-top: 15px; width: 100%; max-width: 420px; }
+        .btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold;
+            cursor: pointer; transition: 0.2s; font-size: 0.9rem; background: #2f3542; color: #fff;
+        }
+        .btn:hover { background: #57606f; }
+        .btn-shop { background: #eccc68; color: #1e272e; }
+        .btn-shop:hover { background: #ff7f50; color: #fff; }
+
+        /* 訊息日誌 */
+        .log-box {
+            margin-top: 12px; width: 100%; max-width: 420px; height: 60px;
+            background: rgba(0,0,0,0.4); border-radius: 8px; padding: 8px 12px;
+            font-size: 0.8rem; color: #ccc; overflow-y: auto; border: 1px solid #222;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🗡️ 地牢掃雷探險</h1>
+    <div class="subtitle">數字代表周圍 8 格的敵力總和，避開強敵、收集寶藏！</div>
+
+    <div class="stats-panel">
+        <div class="stat-item">🏰 樓層: <span class="val-floor" id="floor">1</span></div>
+        <div class="stat-item">❤️ 血量: <span class="val-hp" id="hp">30/30</span></div>
+        <div class="stat-item">⚔️ 攻擊: <span class="val-atk" id="atk">5</span></div>
+        <div class="stat-item">💰 金幣: <span class="val-gold" id="gold">0</span></div>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <div class="action-panel">
+        <button class="btn btn-shop" onclick="buyUpgrade('hp')">💊 補血 (+15HP) 💰20</button>
+        <button class="btn btn-shop" onclick="buyUpgrade('atk')">🗡️ 鍛造 (+3ATK) 💰30</button>
+    </div>
+
+    <div class="log-box" id="log">Welcome to the dungeon! 點擊方塊開始探索。</div>
+
+    <script>
+        const GRID_SIZE = 8;
+        let floor = 1, hp = 30, maxHp = 30, atk = 5, gold = 0;
+        let board = [], revealedCount = 0, exitOpened = false;
+
+        function initGame() {
+            floor = 1; hp = 30; maxHp = 30; atk = 5; gold = 0;
+            updateStats();
+            generateFloor();
+            addLog("⚔️ 探險開始！探索第 1 層地牢。");
+        }
+
+        function generateFloor() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            board = [];
+            revealedCount = 0;
+            exitOpened = false;
+
+            // 生成空網格
+            for (let r = 0; r < GRID_SIZE; r++) {
+                board[r] = [];
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    board[r][c] = { type: 'empty', danger: 0, revealed: false, element: null };
+                }
+            }
+
+            // 放置物件 (出口、怪物、寶箱、藥水)
+            placeObject('exit', 1);
+            placeObject('monster', Math.min(6 + floor, 14));
+            placeObject('chest', 4);
+            placeObject('potion', 3);
+
+            // 計算危險指數 (周圍怪物數量)
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (board[r][c].type !== 'monster') {
+                        board[r][c].danger = countSurroundingMonsters(r, c);
+                    }
+                }
+            }
+
+            // 渲染 DOM
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.onclick = () => revealCell(r, c);
+                    board[r][c].element = cell;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function placeObject(type, count) {
+            let placed = 0;
+            while (placed < count) {
+                let r = Math.floor(Math.random() * GRID_SIZE);
+                let c = Math.floor(Math.random() * GRID_SIZE);
+                if (board[r][c].type === 'empty') {
+                    board[r][c].type = type;
+                    placed++;
+                }
+            }
+        }
+
+        function countSurroundingMonsters(r, c) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    let nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                        if (board[nr][nc].type === 'monster') count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function revealCell(r, c) {
+            let cell = board[r][c];
+            if (cell.revealed) return;
+
+            cell.revealed = true;
+            cell.element.classList.add('revealed');
+
+            if (cell.type === 'monster') {
+                let mAtk = Math.floor(3 + floor * 1.5);
+                let damage = Math.max(1, mAtk - Math.floor(atk / 2));
+                hp -= damage;
+                gold += 5 + floor;
+                cell.element.innerText = '👾';
+                addLog(`⚔️ 遇到怪物！受到 ${damage} 傷害，獲取 💰${5 + floor}`);
+                if (hp <= 0) gameOver();
+            } else if (cell.type === 'chest') {
+                let g = 15 + floor * 5;
+                gold += g;
+                cell.element.innerText = '💎';
+                addLog(`💰 發現寶箱！獲得金幣 ${g}`);
+            } else if (cell.type === 'potion') {
+                let heal = 10;
+                hp = Math.min(maxHp, hp + heal);
+                cell.element.innerText = '🧪';
+                addLog(`❤️ 喝下藥水，恢復 ${heal} 血量`);
+            } else if (cell.type === 'exit') {
+                cell.element.innerText = '🚪';
+                addLog(`🚪 找到通往下一層的出口！點擊前往第 ${floor + 1} 層`);
+                floor++;
+                setTimeout(generateFloor, 800);
+            } else {
+                if (cell.danger > 0) {
+                    cell.element.innerText = cell.danger;
+                    cell.element.classList.add(`num-${Math.min(cell.danger, 4)}`);
+                }
+            }
+            updateStats();
+        }
+
+        function buyUpgrade(type) {
+            if (type === 'hp' && gold >= 20) {
+                gold -= 20; maxHp += 15; hp += 15;
+                addLog('💊 購買血量，上限 +15 並補滿！');
+            } else if (type === 'atk' && gold >= 30) {
+                gold -= 30; atk += 3;
+                addLog('🗡️ 鍛造武器，攻擊力 +3！');
+            } else {
+                addLog('❌ 金幣不足！');
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('floor').innerText = floor;
+            document.getElementById('hp').innerText = `${hp}/${maxHp}`;
+            document.getElementById('atk').innerText = atk;
+            document.getElementById('gold').innerText = gold;
+        }
+
+        function addLog(msg) {
+            const logBox = document.getElementById('log');
+            logBox.innerHTML = `<div>${msg}</div>` + logBox.innerHTML;
+        }
+
+        function gameOver() {
+            alert(`☠️ 你在第 ${floor} 層戰敗了！最高探索：${floor} 層`);
+            initGame();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
