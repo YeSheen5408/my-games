@@ -1,0 +1,414 @@
+
+
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極簡卡牌 Deckbuilder 🃏</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #181824;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+            padding: 20px;
+            user-select: none;
+        }
+
+        /* 頂部資訊欄 */
+        .header {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* 戰鬥舞台區 */
+        .battle-stage {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .entity {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 20px;
+            width: 220px;
+            text-align: center;
+            position: relative;
+        }
+        .entity-avatar { font-size: 4rem; margin-bottom: 10px; }
+        .entity-name { font-weight: bold; font-size: 1.2rem; margin-bottom: 8px; }
+        .hp-bar-bg { background: #333; height: 16px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+        .hp-bar-fill { background: #ff4757; height: 100%; width: 100%; transition: width 0.3s; }
+        .shield-badge { color: #1e90ff; font-weight: bold; font-size: 0.9rem; }
+        .intent-badge {
+            position: absolute;
+            top: -15px;
+            right: 15px;
+            background: #ffa500;
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        /* 戰鬥日誌 */
+        .log-box {
+            width: 100%;
+            max-width: 800px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            color: #aaa;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* 玩家手牌區 */
+        .hand-container {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            min-height: 160px;
+            width: 100%;
+            max-width: 800px;
+        }
+        .card {
+            width: 110px;
+            height: 150px;
+            background: #2f3542;
+            border: 2px solid #57606f;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            position: relative;
+        }
+        .card:hover { transform: translateY(-12px); border-color: #00ffcc; }
+        .card.disabled { opacity: 0.5; cursor: not-allowed; transform: none; border-color: #57606f; }
+        .card-cost {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: #1e90ff;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .card-title { font-size: 0.95rem; font-weight: bold; text-align: center; margin-top: 15px; }
+        .card-desc { font-size: 0.75rem; color: #ccc; text-align: center; }
+
+        /* 控制與資訊面板 */
+        .controls {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .btn-end-turn {
+            background: #ff6b81;
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-end-turn:hover { background: #ff4757; }
+        .deck-info { font-size: 0.9rem; color: #888; }
+        .mana-display { font-size: 1.2rem; font-weight: bold; color: #1e90ff; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>⚔️ 關卡 1 - 賽博怪獸</h2>
+        <div class="mana-display">⚡ 能量: <span id="mana">3</span>/3</div>
+    </div>
+
+    <!-- 戰鬥舞台 -->
+    <div class="battle-stage">
+        <!-- 玩家 -->
+        <div class="entity">
+            <div class="entity-avatar">🧙‍♂️</div>
+            <div class="entity-name">冒險者</div>
+            <div class="hp-bar-bg"><div class="hp-bar-fill" id="playerHpBar"></div></div>
+            <div>HP: <span id="playerHp">40</span>/40</div>
+            <div class="shield-badge">🛡️ 護盾: <span id="playerShield">0</span></div>
+        </div>
+
+        <!-- 敵人 -->
+        <div class="entity">
+            <div class="intent-badge" id="enemyIntent">意圖: ⚔️ 8 傷害</div>
+            <div class="entity-avatar">👾</div>
+            <div class="entity-name">虛空惡魔</div>
+            <div class="hp-bar-bg"><div class="hp-bar-fill" id="enemyHpBar"></div></div>
+            <div>HP: <span id="enemyHp">50</span>/50</div>
+            <div class="shield-badge">🛡️ 護盾: <span id="enemyShield">0</span></div>
+        </div>
+    </div>
+
+    <!-- 戰鬥日誌 -->
+    <div class="log-box" id="logBox">戰鬥開始！請選擇你的卡牌...</div>
+
+    <!-- 手牌區 -->
+    <div class="hand-container" id="hand"></div>
+
+    <!-- 控制列 -->
+    <div class="controls">
+        <div class="deck-info">
+            🎴 抽牌堆: <span id="drawCount">0</span> | 🗑️ 棄牌堆: <span id="discardCount">0</span>
+        </div>
+        <button class="btn-end-turn" onclick="endTurn()">結束回合 ➔</button>
+    </div>
+
+    <script>
+        // 卡牌資料庫
+        const CARD_TYPES = {
+            strike: { name: "普通打擊", cost: 1, type: "attack", val: 6, desc: "造成 6 點傷害" },
+            defend: { name: "戰術防禦", cost: 1, type: "defend", val: 5, desc: "獲得 5 點護盾" },
+            heal:   { name: "微型治療", cost: 2, type: "heal",   val: 8, desc: "恢復 8 點生命" },
+            draw:   { name: "戰術思考", cost: 1, type: "draw",   val: 2, desc: "額外抽取 2 張牌" }
+        };
+
+        // 玩家基礎牌組
+        const initialDeck = [
+            "strike", "strike", "strike", "strike",
+            "defend", "defend", "defend",
+            "heal", "draw"
+        ];
+
+        let drawPile = [];
+        let hand = [];
+        let discardPile = [];
+
+        let player = { maxHp: 40, hp: 40, shield: 0, maxMana: 3, mana: 3 };
+        let enemy = { maxHp: 50, hp: 50, shield: 0, nextAction: 'attack', nextVal: 8 };
+
+        // 初始化
+        function initGame() {
+            drawPile = [...initialDeck];
+            shuffle(drawPile);
+            updateUI();
+            startPlayerTurn();
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function log(msg) {
+            const box = document.getElementById('logBox');
+            box.innerHTML += `<div>${msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // 抽牌邏輯
+        function drawCards(num) {
+            for (let i = 0; i < num; i++) {
+                if (drawPile.length === 0) {
+                    if (discardPile.length === 0) break; // 沒牌可抽
+                    drawPile = [...discardPile];
+                    discardPile = [];
+                    shuffle(drawPile);
+                    log("🔄 洗牌：將棄牌堆重新洗入抽牌堆。");
+                }
+                hand.push(drawPile.pop());
+            }
+            renderHand();
+            updateUI();
+        }
+
+        // 玩家回合開始
+        function startPlayerTurn() {
+            player.mana = player.maxMana;
+            player.shield = 0; // 回合開始護盾清空
+            generateEnemyIntent();
+            drawCards(4);
+            log(`<b>--- 你的回合 ---</b>`);
+        }
+
+        // 打出卡牌
+        function playCard(index) {
+            const cardKey = hand[index];
+            const card = CARD_TYPES[cardKey];
+
+            if (player.mana < card.cost) {
+                log("⚠️ 能量不足！");
+                return;
+            }
+
+            player.mana -= card.cost;
+            hand.splice(index, 1);
+            discardPile.push(cardKey);
+
+            // 執行卡牌效果
+            if (card.type === "attack") {
+                let damage = card.val;
+                if (enemy.shield > 0) {
+                    if (enemy.shield >= damage) {
+                        enemy.shield -= damage;
+                        damage = 0;
+                    } else {
+                        damage -= enemy.shield;
+                        enemy.shield = 0;
+                    }
+                }
+                enemy.hp = Math.max(0, enemy.hp - damage);
+                log(`⚔️ 你使用【${card.name}】，對敵人造成了 ${card.val} 點傷害！`);
+            } else if (card.type === "defend") {
+                player.shield += card.val;
+                log(`🛡️ 你使用【${card.name}】，獲得了 ${card.val} 點護盾。`);
+            } else if (card.type === "heal") {
+                player.hp = Math.min(player.maxHp, player.hp + card.val);
+                log(`💖 你使用【${card.name}】，恢復了 ${card.val} 點生命。`);
+            } else if (card.type === "draw") {
+                log(`📜 你使用【${card.name}】，額外抽取了 ${card.val} 張牌！`);
+                drawCards(card.val);
+            }
+
+            renderHand();
+            updateUI();
+            checkBattleStatus();
+        }
+
+        // 結束回合與敵人行動
+        function endTurn() {
+            // 剩餘手牌丟入棄牌堆
+            discardPile.push(...hand);
+            hand = [];
+            renderHand();
+
+            // 敵人回合
+            log(`<b>--- 敵人回合 ---</b>`);
+            enemy.shield = 0;
+
+            if (enemy.nextAction === 'attack') {
+                let dmg = enemy.nextVal;
+                if (player.shield > 0) {
+                    if (player.shield >= dmg) {
+                        player.shield -= dmg;
+                        dmg = 0;
+                    } else {
+                        dmg -= player.shield;
+                        player.shield = 0;
+                    }
+                }
+                player.hp = Math.max(0, player.hp - dmg);
+                log(`💥 虛空惡魔對你造成了 ${enemy.nextVal} 點傷害！`);
+            } else {
+                enemy.shield += enemy.nextVal;
+                log(`🛡️ 虛空惡魔防禦，獲得了 ${enemy.nextVal} 點護盾！`);
+            }
+
+            updateUI();
+            if (checkBattleStatus()) return;
+
+            // 回到玩家回合
+            setTimeout(startPlayerTurn, 800);
+        }
+
+        // 決定敵人下一次意圖
+        function generateEnemyIntent() {
+            const isAttack = Math.random() > 0.3;
+            if (isAttack) {
+                enemy.nextAction = 'attack';
+                enemy.nextVal = Math.floor(Math.random() * 5) + 6; // 6 ~ 10 傷害
+                document.getElementById('enemyIntent').innerText = `意圖: ⚔️ ${enemy.nextVal} 傷害`;
+            } else {
+                enemy.nextAction = 'defend';
+                enemy.nextVal = Math.floor(Math.random() * 4) + 5; // 5 ~ 8 護盾
+                document.getElementById('enemyIntent').innerText = `意圖: 🛡️ ${enemy.nextVal} 防禦`;
+            }
+        }
+
+        function checkBattleStatus() {
+            if (enemy.hp <= 0) {
+                alert("🎉 恭喜獲勝！你擊敗了虛空惡魔！");
+                location.reload();
+                return true;
+            }
+            if (player.hp <= 0) {
+                alert("💀 你被打敗了... 遊戲結束！");
+                location.reload();
+                return true;
+            }
+            return false;
+        }
+
+        // 渲染手牌
+        function renderHand() {
+            const handEl = document.getElementById('hand');
+            handEl.innerHTML = '';
+            hand.forEach((cardKey, index) => {
+                const card = CARD_TYPES[cardKey];
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${player.mana < card.cost ? 'disabled' : ''}`;
+                cardEl.onclick = () => playCard(index);
+                cardEl.innerHTML = `
+                    <div class="card-cost">${card.cost}</div>
+                    <div class="card-title">${card.name}</div>
+                    <div class="card-desc">${card.desc}</div>
+                `;
+                handEl.appendChild(cardEl);
+            });
+        }
+
+        // 更新 UI 數據
+        function updateUI() {
+            document.getElementById('playerHp').innerText = player.hp;
+            document.getElementById('playerHpBar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('playerShield').innerText = player.shield;
+            document.getElementById('mana').innerText = player.mana;
+
+            document.getElementById('enemyHp').innerText = enemy.hp;
+            document.getElementById('enemyHpBar').style.width = `${(enemy.hp / enemy.maxHp) * 100}%`;
+            document.getElementById('enemyShield').innerText = enemy.shield;
+
+            document.getElementById('drawCount').innerText = drawPile.length;
+            document.getElementById('discardCount').innerText = discardPile.length;
+        }
+
+        // 啟動遊戲
+        initGame();
+    </script>
+</body>
+</html>
