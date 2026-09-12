@@ -53,6 +53,13 @@
         <div class="card-container" id="cardsBox"></div>
     </div>
 
+    <!-- Game Over 彈窗 -->
+    <div class="level-up-modal" id="gameOverModal">
+        <div class="modal-title" style="color: #ff4757;">💀 遊戲結束</div>
+        <div style="margin-bottom: 20px; font-size: 1.2rem;">最終生存擊殺數: <span id="finalKills" style="color: #feca57; font-weight: bold;">0</span></div>
+        <button onclick="restartGame()" style="background: #1dd1a1; border: none; color: white; padding: 12px 30px; border-radius: 20px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">重新開始 🔄</button>
+    </div>
+
     <canvas id="gameCanvas" width="900" height="600"></canvas>
 
     <script>
