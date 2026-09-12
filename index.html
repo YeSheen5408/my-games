@@ -220,13 +220,14 @@
             { id: "space", url: "space.html", icon: "🚀", title: "極簡彈幕：科幻星戰", desc: "雷射連發！體驗掌上流暢無阻的星際彈幕大戰。" },
             { id: "tower", url: "tower.html", icon: "🏹", title: "極簡策略：王國守衛戰", desc: "佈置箭塔、冰霜塔與火砲，抵禦一波波進犯的像素怪物群！" },
             { id: "mower", url: "mower.html", icon: "🔮", title: "爽快解壓：霓虹粒子割草", desc: "瘋狂吸取經驗值！體驗全螢幕環狀雷射橫飛的終極割草爽感。" },
-            { id: "runner", url: "runner.html", icon: "🏃‍♂️", title: "極簡跑酷：賽博奔跑者", desc: "輕盈跳躍、空中兩段翻滾！挑戰極速霓虹障礙物與生涯最高分。" }
+            { id: "runner", url: "runner.html", icon: "🏃‍♂️", title: "極簡跑酷：賽博奔跑者", desc: "輕盈跳躍、空中兩段翻滾！挑戰極速霓虹障礙物與生涯最高分。" },
+            { id: "snake_io", url: "snake_io.html", icon: "🐍", title: "大亂鬥進化：貪食蛇大亂鬥", desc: "走位截殺！在賽博戰場吞噬成長，登頂第一霸主。" }
         ];
 
         let currentSort = localStorage.getItem('lobby_sort_mode') || 'classic';
         let favorites = JSON.parse(localStorage.getItem('lobby_favorites')) || [];
 
-        // ⚙️ 新增：從快取記憶開關狀態（預設開啟 1，關閉為 0）
+        // ⚙️ 從快取記憶開關狀態（預設開啟 1，關閉為 0）
         let isAutoRefreshEnabled = localStorage.getItem('dev_auto_refresh') !== '0';
 
         let countdown = 60;
@@ -298,20 +299,20 @@
             renderLobby();
         }
 
-        // ⚙️ 新增：切換自動刷新開關
+        // ⚙️ 切換自動刷新開關
         function toggleAutoRefresh() {
             isAutoRefreshEnabled = !isAutoRefreshEnabled;
             localStorage.setItem('dev_auto_refresh', isAutoRefreshEnabled ? '1' : '0');
             updateToggleBtnUI();
             
             if (isAutoRefreshEnabled) {
-                startTimer(); // 重新啟動計時器
+                startTimer();
             } else {
-                document.getElementById('devTimer').innerText = "⏸️"; // 顯示暫停符號
+                document.getElementById('devTimer').innerText = "⏸️";
             }
         }
 
-        // ⚙️ 新增：更新開關按鈕的外觀
+        // ⚙️ 更新開關按鈕的外觀
         function updateToggleBtnUI() {
             const btn = document.getElementById('autoToggleBtn');
             if (isAutoRefreshEnabled) {
@@ -323,14 +324,14 @@
             }
         }
 
-        // 計時器模組（整合開關判斷）
+        // 計時器模組
         function updateCountUI() { document.getElementById('refreshCount').innerText = refreshCount; }
         
         function startTimer() {
             clearInterval(timerInterval);
             if (!isAutoRefreshEnabled) {
                 document.getElementById('devTimer').innerText = "⏸️";
-                return; // 如果關閉了，直接不執行計時遞減
+                return;
             }
             countdown = 60; 
             document.getElementById('devTimer').innerText = countdown;
